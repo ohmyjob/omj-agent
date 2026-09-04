@@ -64,6 +64,52 @@ func (l *logCapture) count(substr string) int {
 	return strings.Count(l.buf.String(), substr)
 }
 
+// fakeTicker hands out one channel per interval and lets a test tick it by
+// hand; a tick that nobody is waiting for is dropped rather than queued.
+type fakeTicker struct {
+	mu       sync.Mutex
+	channels map[time.Duration]chan time.Time
+}
+
+func newFakeTicker() *fakeTicker {
+	return &fakeTicker{channels: map[time.Duration]chan time.Time{}}
+}
+
+func (f *fakeTicker) factory(interval time.Duration) (<-chan time.Time, func()) {
+	return f.channel(interval), func() {}
+}
+
+func (f *fakeTicker) channel(interval time.Duration) chan time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	ch, ok := f.channels[interval]
+	if !ok {
+		ch = make(chan time.Time)
+		f.channels[interval] = ch
+	}
+
+	return ch
+}
+
+// tickUntil keeps offering ticks on the interval's channel until done
+// reports true or the deadline passes.
+func (f *fakeTicker) tickUntil(t *testing.T, interval time.Duration, done func() bool) {
+	t.Helper()
+
+	ch := f.channel(interval)
+	deadline := time.After(10 * time.Second)
+
+	for !done() {
+		select {
+		case ch <- time.Time{}:
+		case <-time.After(5 * time.Millisecond):
+		case <-deadline:
+			t.Fatalf("condition not met within 10s while ticking every %s", interval)
+		}
+	}
+}
+
 // recordingReporter remembers what the loop hands over, then behaves like
 // the default reporter so processes are reaped and slots released.
 type recordingReporter struct {
@@ -134,6 +180,7 @@ type harness struct {
 	buffer   *output.Buffer
 	reporter *recordingReporter
 	resender *recordingResender
+	ticker   *fakeTicker
 	now      time.Time
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -142,6 +189,8 @@ type harness struct {
 type harnessOptions struct {
 	maxConcurrent int
 	stopAfter     int
+	batchChunks   int
+	realResender  bool
 	before        func(h *harness)
 }
 
@@ -184,8 +233,9 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		sleeper:  &fakeSleeper{},
 		logs:     &logCapture{},
 		store:    store,
-		buffer:   output.NewBuffer(output.BufferOptions{}),
+		buffer:   output.NewBuffer(output.BufferOptions{BatchChunks: opts.batchChunks}),
 		resender: &recordingResender{},
+		ticker:   newFakeTicker(),
 		now:      now,
 	}
 	h.reporter = &recordingReporter{buffer: h.buffer, stderr: map[string]string{}}
@@ -196,6 +246,11 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		opts.before(h)
 	}
 
+	var resender Resender = h.resender
+	if opts.realResender {
+		resender = nil
+	}
+
 	h.agent, err = New(Options{
 		Config:   cfg,
 		Client:   c,
@@ -204,17 +259,18 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		Runner:   runner.Runner{Grace: 200 * time.Millisecond},
 		Buffer:   h.buffer,
 		Reporter: h.reporter,
-		Resender: h.resender,
+		Resender: resender,
 		Logger:   slog.New(slog.NewTextHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Now:      func() time.Time { return now },
 		Backoff:  &client.Backoff{Rand: func() float64 { return 0.5 }},
 		Sleep:    h.sleeper.sleep,
+		Ticker:   h.ticker.factory,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h.reporter.inner = waitReporter{agent: h.agent}
+	h.reporter.inner = reporter{agent: h.agent}
 
 	if opts.stopAfter > 0 {
 		server.OnWork(func(count int, _ protocol.WorkRequest) {

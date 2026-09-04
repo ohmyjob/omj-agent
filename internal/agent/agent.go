@@ -52,13 +52,13 @@ var DefaultSettings = Settings{
 }
 
 // Reporter owns a Run from the moment the Agent hands it over until the
-// Server has accepted its outcome; task 012 implements the real one.
+// Server has accepted its outcome.
 type Reporter interface {
 	Report(ctx context.Context, run *Run)
 }
 
 // Resender answers a lease whose run id already has a stored outcome by
-// sending that outcome again; task 012 implements the real one.
+// sending that outcome again.
 type Resender interface {
 	Resend(ctx context.Context, lease protocol.RunLease, outcome state.RecentRun) error
 }
@@ -76,6 +76,7 @@ type Options struct {
 	Now      func() time.Time
 	Backoff  *client.Backoff
 	Sleep    client.Sleeper
+	Ticker   Ticker
 }
 
 type Agent struct {
@@ -91,6 +92,7 @@ type Agent struct {
 	now      func() time.Time
 	backoff  *client.Backoff
 	sleep    client.Sleeper
+	ticker   Ticker
 
 	registry registry
 	rejected rejected
@@ -122,17 +124,18 @@ func New(opts Options) (*Agent, error) {
 		now:      opts.Now,
 		backoff:  opts.Backoff,
 		sleep:    opts.Sleep,
+		ticker:   opts.Ticker,
 		registry: newRegistry(),
 		rejected: newRejected(),
 		settings: DefaultSettings,
 	}
 
 	if a.reporter == nil {
-		a.reporter = waitReporter{agent: a}
+		a.reporter = reporter{agent: a}
 	}
 
 	if a.resender == nil {
-		a.resender = noResender{}
+		a.resender = reporter{agent: a}
 	}
 
 	if a.logger == nil {
@@ -149,6 +152,10 @@ func New(opts Options) (*Agent, error) {
 
 	if a.sleep == nil {
 		a.sleep = sleep
+	}
+
+	if a.ticker == nil {
+		a.ticker = realTicker
 	}
 
 	return a, nil
@@ -332,38 +339,4 @@ func OutcomeOf(result runner.Result) (protocol.RunStatus, *int, *protocol.Finish
 	default:
 		return protocol.RunStatusFailed, &code, nil
 	}
-}
-
-// waitReporter stands in until task 012: it waits for the process, records
-// the outcome locally and releases the Run's memory.
-type waitReporter struct {
-	agent *Agent
-}
-
-func (r waitReporter) Report(_ context.Context, run *Run) {
-	var outcome state.Outcome
-
-	switch {
-	case run.CancelledBeforeStart:
-		outcome = state.Outcome{Status: string(protocol.RunStatusCancelled)}
-	case run.SpawnErr != nil:
-		outcome = state.Outcome{Status: string(protocol.RunStatusFailed)}
-	default:
-		status, code, _ := OutcomeOf(run.Process.Wait())
-		outcome = state.Outcome{Status: string(status), ExitCode: code}
-	}
-
-	run.Chunker.Close()
-
-	if err := r.agent.state.MarkFinished(run.Lease.RunID, outcome); err != nil {
-		r.agent.logger.Error("state not saved", "run_id", run.Lease.RunID, "error", err)
-	}
-
-	r.agent.buffer.Forget(run.Lease.RunID)
-}
-
-type noResender struct{}
-
-func (noResender) Resend(context.Context, protocol.RunLease, state.RecentRun) error {
-	return nil
 }

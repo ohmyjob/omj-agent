@@ -37,6 +37,8 @@ type fakeServer struct {
 	onWork        func(count int, request protocol.WorkRequest)
 	rejectAuth    bool
 	rejectProto   *protocol.ErrorResponse
+	cancelWanted  map[string]bool
+	truncated     map[string]bool
 }
 
 type failure struct {
@@ -73,6 +75,8 @@ func newFakeServer(t *testing.T) *fakeServer {
 		config:        protocol.AgentConfig{HeartbeatIntervalSeconds: 15, OutputFlushIntervalMS: 500, OutputChunkBytes: 65536, PollWaitSeconds: 25},
 		failures:      map[string][]failure{},
 		startRefusals: map[string]failure{},
+		cancelWanted:  map[string]bool{},
+		truncated:     map[string]bool{},
 	}
 
 	mux := http.NewServeMux()
@@ -107,6 +111,23 @@ func (f *fakeServer) Cancel(runIDs ...string) {
 	defer f.mu.Unlock()
 
 	f.cancels = append(f.cancels, runIDs...)
+}
+
+// RequestCancel makes every output and heartbeat answer for the Run carry
+// cancel_requested, the way the Server relays a user's cancellation.
+func (f *fakeServer) RequestCancel(runID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.cancelWanted[runID] = true
+}
+
+// TruncateOutput makes every output answer for the Run say the cap was hit.
+func (f *fakeServer) TruncateOutput(runID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.truncated[runID] = true
 }
 
 func (f *fakeServer) SetConfig(config protocol.AgentConfig) {
@@ -332,11 +353,14 @@ func (f *fakeServer) output(w http.ResponseWriter, r *http.Request) {
 		last = max(last, chunk.Seq)
 	}
 
+	runID := r.PathValue("id")
+
 	f.mu.Lock()
-	f.outputs = append(f.outputs, outputRecord{RunID: r.PathValue("id"), Request: request})
+	f.outputs = append(f.outputs, outputRecord{RunID: runID, Request: request})
+	response := protocol.OutputResponse{LastOutputSeq: last, Truncated: f.truncated[runID], CancelRequested: f.cancelWanted[runID]}
 	f.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, protocol.OutputResponse{LastOutputSeq: last})
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (f *fakeServer) heartbeat(w http.ResponseWriter, r *http.Request) {
@@ -344,11 +368,14 @@ func (f *fakeServer) heartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	runID := r.PathValue("id")
+
 	f.mu.Lock()
-	f.heartbeats = append(f.heartbeats, r.PathValue("id"))
+	f.heartbeats = append(f.heartbeats, runID)
+	response := protocol.HeartbeatResponse{CancelRequested: f.cancelWanted[runID], ServerTime: time.Now().UTC()}
 	f.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, protocol.HeartbeatResponse{ServerTime: time.Now().UTC()})
+	writeJSON(w, http.StatusOK, response)
 }
 
 func (f *fakeServer) finish(w http.ResponseWriter, r *http.Request) {
