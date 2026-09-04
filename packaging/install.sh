@@ -109,7 +109,9 @@ if [ "$uninstall" -eq 1 ]; then
 fi
 
 if [ "$no_enroll" -eq 0 ]; then
-    [ -n "$server" ] && [ -n "$token" ] || fail "pass --server and --token (both are on the Add Machine page), or --no-enroll to install without enrolling" 2
+    if [ -z "$server" ] || [ -z "$token" ]; then
+        fail "pass --server and --token (both are on the Add Machine page), or --no-enroll to install without enrolling" 2
+    fi
 fi
 if [ -n "$server" ]; then
     case "$server" in
