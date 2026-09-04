@@ -1,0 +1,19 @@
+{
+    "wait_seconds": 25,
+    "slots": 3,
+    "active_runs": [
+        {
+            "run_id": "3a9c1e5d-7b2f-4e8a-b6c4-1d0f9e8a7b65",
+            "status": "running"
+        }
+    ],
+    "hostname": "nas01",
+    "os": "linux",
+    "os_version": "Debian GNU/Linux 12",
+    "arch": "arm64",
+    "kernel_version": "6.1.0",
+    "agent_user": "ohmyjob",
+    "agent_uid": 998,
+    "insecure_http": false,
+    "reported_ips": ["192.168.1.20"]
+}

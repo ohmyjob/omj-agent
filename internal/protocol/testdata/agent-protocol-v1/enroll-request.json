@@ -1,0 +1,14 @@
+{
+    "token": "omj_enroll_aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY",
+    "hostname": "nas01",
+    "os": "linux",
+    "os_version": "Debian GNU/Linux 12",
+    "arch": "arm64",
+    "kernel_version": "6.1.0",
+    "agent_version": "0.1.0",
+    "agent_user": "ohmyjob",
+    "agent_uid": 998,
+    "insecure_http": false,
+    "reported_ips": ["192.168.1.20"],
+    "name": "nas01"
+}

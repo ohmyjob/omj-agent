@@ -1,0 +1,6 @@
+{
+    "error": "unsupported_protocol",
+    "message": "This Agent speaks protocol version 2, which this Server does not support.",
+    "supported_protocol_versions": [1],
+    "min_agent_version": "0.1.0"
+}
