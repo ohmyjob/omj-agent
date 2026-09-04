@@ -6,8 +6,10 @@ PACKAGE := github.com/ohmyjob/omj-agent/internal/version
 LDFLAGS := -s -w -X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).Commit=$(COMMIT) -X $(PACKAGE).Date=$(DATE)
 GORELEASER_VERSION := 2.18.0
 GORELEASER ?= $(shell command -v goreleaser 2>/dev/null || echo go run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION))
+SERVER_DIR ?= ../omj-server
+OMJ_SERVER_IMAGE ?= ohmyjob/server:e2e
 
-.PHONY: build test lint fmt clean sync-fixtures test-install release-snapshot
+.PHONY: build test lint fmt clean sync-fixtures test-install release-snapshot e2e server-image
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BINARY) ./cmd/omj-agent
@@ -35,6 +37,17 @@ test-install:
 # Builds the release archives and SHA256SUMS into dist/ without publishing anything.
 release-snapshot:
 	$(GORELEASER) release --snapshot --clean
+
+# Runs the end-to-end suite against the real Server image and two real Agents (needs
+# Docker). The images are private, so the Server image is built from a server checkout
+# unless OMJ_SERVER_IMAGE names one that can be pulled.
+e2e:
+	go test -tags e2e -count=1 -timeout 20m ./test/e2e/...
+
+# Builds the Server image the harness defaults to: make server-image SERVER_DIR=../omj-server
+server-image:
+	@test -f "$(SERVER_DIR)/docker/Dockerfile" || { echo "server-image: SERVER_DIR must point at a server checkout ($(SERVER_DIR)/docker/Dockerfile is missing)"; exit 1; }
+	cd "$(SERVER_DIR)" && docker build -f docker/Dockerfile --build-arg VERSION=e2e -t $(OMJ_SERVER_IMAGE) .
 
 # Refresh the protocol fixtures from a server checkout: make sync-fixtures SERVER_DIR=../omj-server
 sync-fixtures:
