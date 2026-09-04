@@ -1,0 +1,68 @@
+version: 2
+
+project_name: omj-agent
+
+builds:
+  - id: omj-agent
+    main: ./cmd/omj-agent
+    binary: omj-agent
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/ohmyjob/omj-agent/internal/version.Version={{ .Version }}
+      - -X github.com/ohmyjob/omj-agent/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/ohmyjob/omj-agent/internal/version.Date={{ .Date }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: omj-agent
+    formats:
+      - tar.gz
+    name_template: "omj-agent_{{ .Version }}_linux_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - packaging/systemd/omj-agent.service
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next.{{ .ShortCommit }}"
+
+changelog:
+  use: git
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat(\(.+\))?!?:'
+      order: 0
+    - title: Fixes
+      regexp: '^fix(\(.+\))?!?:'
+      order: 1
+    - title: Build and packaging
+      regexp: '^(build|ci)(\(.+\))?!?:'
+      order: 2
+    - title: Other changes
+      order: 999
+  filters:
+    exclude:
+      - '^docs(\(.+\))?:'
+      - '^test(\(.+\))?:'
+      - '^chore(\(.+\))?:'
+
+release:
+  github:
+    owner: ohmyjob
+    name: omj-agent
+  draft: false
+  prerelease: auto

@@ -4,8 +4,10 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 PACKAGE := github.com/ohmyjob/omj-agent/internal/version
 LDFLAGS := -s -w -X $(PACKAGE).Version=$(VERSION) -X $(PACKAGE).Commit=$(COMMIT) -X $(PACKAGE).Date=$(DATE)
+GORELEASER_VERSION := 2.18.0
+GORELEASER ?= $(shell command -v goreleaser 2>/dev/null || echo go run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION))
 
-.PHONY: build test lint fmt clean sync-fixtures test-install
+.PHONY: build test lint fmt clean sync-fixtures test-install release-snapshot
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags '$(LDFLAGS)' -o $(BINARY) ./cmd/omj-agent
@@ -25,9 +27,14 @@ fmt:
 clean:
 	rm -rf bin dist coverage.out
 
-# Installs a locally packaged release inside Debian and Fedora containers (needs Docker).
+# Installs a packaged release inside Debian and Fedora containers (needs Docker). Set
+# RELEASE_DIR to a GoReleaser output directory to test real archives instead of an ad hoc build.
 test-install:
-	sh packaging/test/run.sh
+	RELEASE_DIR="$(RELEASE_DIR)" sh packaging/test/run.sh
+
+# Builds the release archives and SHA256SUMS into dist/ without publishing anything.
+release-snapshot:
+	$(GORELEASER) release --snapshot --clean
 
 # Refresh the protocol fixtures from a server checkout: make sync-fixtures SERVER_DIR=../omj-server
 sync-fixtures:
