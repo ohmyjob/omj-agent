@@ -1,6 +1,6 @@
 # 006 · Enroll command
 
-Status: todo
+Status: done
 Repo: ohmyjob-agent
 Depends on: 002, 004, 005
 PRD: §15, §16.4, §16.3, §21
@@ -29,3 +29,14 @@ PRD: §15, §16.4, §16.3, §21
 ## Tests
 
 - Fake Server matrix, filesystem assertions in a temp config dir, redaction check on log output.
+
+## Outcome (2026-09-04)
+
+- `internal/enroll.Enroll(ctx, Options)` holds the whole flow and returns a `Result` (machine id, both file paths, owner, next step); `internal/cli/enroll.go` only parses flags, prints the warning and the outcome, and maps the error to an exit code. Everything the host provides is injectable through `Options`: `Paths`, `Collect`, `HTTPClient`, `Logger` and a `System` value (`UID`, `Username`, `LookupUser`, `Chown`, `ServiceUnit`), so the tests never need root or the network.
+- Failures are `*enroll.Error` values with a `Reason`; the CLI exit codes are 2 for bad input (missing flags, a token without the `omj_enroll_` prefix, plain `http://` without `--insecure-http`, an unknown `--user`), 3 already enrolled, 4 token invalid or used (401), 5 token expired (410), 6 unsupported operating system (422 `unsupported_os`), 7 protocol or agent version rejected (426, the message lists the supported protocol versions and the minimum agent version), 8 throttled (429, with the `Retry-After` wait when the server sends one), 9 unreachable (TLS verification failures get their own wording, other network errors and timeouts the generic one), 10 permission denied, and 1 for anything else (5xx, `validation_failed`, an unusable credential). They are exported from `internal/cli` for the installer.
+- The token is single-use, so every local check runs before the server is called: the existing `machine_id` (refused without `--force`, naming the old id and the UI step), the owner resolution, and a write probe in the configuration directory (created with mode 0750 when missing). A failed enrollment therefore never leaves a Machine record behind on the server for a permission problem on this side.
+- The existing `agent.conf` is read with `config.Parse` (not `Load`, which would reject a file without `server_url`) so `log_level` and the limits survive; only `server_url`, `machine_id` and `insecure_http` are set. An unreadable file is an error unless `--force`, which replaces it with a warning in the log.
+- Owner rules: root without `--user` gives both files to `ohmyjob` when that user exists and keeps them otherwise; a plain user keeps the files and may only name itself with `--user`; naming someone else needs root. `chown` runs after both files are written, on the files only (the directory belongs to the installer).
+- The next step is `systemctl enable --now omj-agent` when `/etc/systemd/system/omj-agent.service` exists and `omj-agent run` otherwise; the credential file is written with mode 0600 before success is reported, as the protocol document requires.
+- Secrets never reach a log: the CLI logs at warn level only, the client logs method, path and status, and the credential is handled as `config.Credential`. A test captures a debug-level log and asserts neither the token nor the credential appears.
+
