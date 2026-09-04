@@ -20,7 +20,7 @@ type command struct {
 
 func commands() []command {
 	return []command{
-		{name: "enroll", summary: "Enroll this machine with a server", run: notImplemented("enroll")},
+		{name: "enroll", summary: "Enroll this machine with a server", run: runEnroll},
 		{name: "run", summary: "Run the agent in the foreground", run: notImplemented("run")},
 		{name: "status", summary: "Show the configuration, machine id and server reachability", run: notImplemented("status")},
 		{name: "version", summary: "Print the agent and protocol versions", run: runVersion},

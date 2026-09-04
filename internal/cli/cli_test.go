@@ -20,7 +20,7 @@ func TestRun(t *testing.T) {
 		{name: "help", args: []string{"help"}, wantCode: ExitOK, wantStdout: "Usage: omj-agent"},
 		{name: "help flag", args: []string{"--help"}, wantCode: ExitOK, wantStdout: "Usage: omj-agent"},
 		{name: "unknown command", args: []string{"bogus"}, wantCode: ExitUsage, wantStderr: `unknown command "bogus"`},
-		{name: "enroll", args: []string{"enroll"}, wantCode: ExitError, wantStderr: "enroll is not implemented yet"},
+		{name: "enroll without flags", args: []string{"enroll"}, wantCode: ExitUsage, wantStderr: "--server and --token are required"},
 		{name: "run", args: []string{"run"}, wantCode: ExitError, wantStderr: "run is not implemented yet"},
 		{name: "status", args: []string{"status"}, wantCode: ExitError, wantStderr: "status is not implemented yet"},
 		{name: "doctor", args: []string{"doctor"}, wantCode: ExitError, wantStderr: "doctor is not implemented yet"},
