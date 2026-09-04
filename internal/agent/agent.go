@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -77,6 +78,12 @@ type Options struct {
 	Backoff  *client.Backoff
 	Sleep    client.Sleeper
 	Ticker   Ticker
+
+	// Signals is where stop requests arrive; nil subscribes to StopSignals.
+	// StopBudget is how long Run waits for the reporters after a stop
+	// request; zero means DefaultStopBudget.
+	Signals    <-chan os.Signal
+	StopBudget time.Duration
 }
 
 type Agent struct {
@@ -93,6 +100,11 @@ type Agent struct {
 	backoff  *client.Backoff
 	sleep    client.Sleeper
 	ticker   Ticker
+	signals  <-chan os.Signal
+
+	stopBudget    time.Duration
+	reportCtx     context.Context
+	stopReporting context.CancelFunc
 
 	registry registry
 	rejected rejected
@@ -125,10 +137,22 @@ func New(opts Options) (*Agent, error) {
 		backoff:  opts.Backoff,
 		sleep:    opts.Sleep,
 		ticker:   opts.Ticker,
+		signals:  opts.Signals,
 		registry: newRegistry(),
 		rejected: newRejected(),
 		settings: DefaultSettings,
+
+		stopBudget: opts.StopBudget,
 	}
+
+	if a.stopBudget <= 0 {
+		a.stopBudget = DefaultStopBudget
+	}
+
+	// Reporters outlive the polling context: an Agent that is stopping still
+	// has to tell the Server how its Runs ended. This context ends them only
+	// when the stop budget is spent.
+	a.reportCtx, a.stopReporting = context.WithCancel(context.Background())
 
 	if a.reporter == nil {
 		a.reporter = reporter{agent: a}
@@ -161,9 +185,37 @@ func New(opts Options) (*Agent, error) {
 	return a, nil
 }
 
-// Run polls until the context ends. A stop is not a failure, so it returns
-// nil; Runs still in progress keep their goroutines, which Wait collects.
+// Run reports what the previous process left behind, then polls until the
+// context ends or a stop signal arrives. A stop is not a failure, so it
+// returns nil; after a signal it first gives the reporters the stop budget,
+// and a second signal ends that wait with ErrForcedStop. Runs still in
+// progress keep their goroutines, which Wait collects.
 func (a *Agent) Run(ctx context.Context) error {
+	a.logStartup()
+	a.reconcile()
+
+	pollCtx, stopPolling := context.WithCancel(ctx)
+	defer stopPolling()
+
+	signals, unsubscribe := a.notify()
+	defer unsubscribe()
+
+	done := make(chan struct{})
+	defer close(done)
+
+	stop := a.watchSignals(done, signals, stopPolling)
+
+	a.poll(pollCtx)
+
+	select {
+	case <-stop.stopped:
+		return a.drain(stop)
+	default:
+		return nil
+	}
+}
+
+func (a *Agent) poll(ctx context.Context) {
 	for ctx.Err() == nil {
 		response, err := a.client.Work(ctx, a.workRequest())
 		if err != nil {
@@ -193,8 +245,6 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 
 	a.logger.Info("agent loop stopped")
-
-	return nil
 }
 
 // Wait blocks until every Run handed to the reporter has been released.
@@ -300,9 +350,7 @@ func (a *Agent) launch(run *Run) {
 		defer a.runs.Done()
 		defer a.registry.remove(run.Lease.RunID)
 
-		// The reporter outlives the polling context: an Agent that is
-		// stopping still has to tell the Server how its Runs ended.
-		a.reporter.Report(context.Background(), run)
+		a.reporter.Report(a.reportCtx, run)
 	}()
 }
 

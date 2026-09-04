@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -181,6 +182,7 @@ type harness struct {
 	reporter *recordingReporter
 	resender *recordingResender
 	ticker   *fakeTicker
+	signals  chan os.Signal
 	now      time.Time
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -191,6 +193,7 @@ type harnessOptions struct {
 	stopAfter     int
 	batchChunks   int
 	realResender  bool
+	stopBudget    time.Duration
 	before        func(h *harness)
 }
 
@@ -236,6 +239,7 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		buffer:   output.NewBuffer(output.BufferOptions{BatchChunks: opts.batchChunks}),
 		resender: &recordingResender{},
 		ticker:   newFakeTicker(),
+		signals:  make(chan os.Signal, 2),
 		now:      now,
 	}
 	h.reporter = &recordingReporter{buffer: h.buffer, stderr: map[string]string{}}
@@ -252,19 +256,21 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 	}
 
 	h.agent, err = New(Options{
-		Config:   cfg,
-		Client:   c,
-		Info:     sysinfo.Info{Hostname: "nas01", OS: "linux", Arch: "arm64", ReportedIPs: []string{"192.168.1.20"}},
-		State:    store,
-		Runner:   runner.Runner{Grace: 200 * time.Millisecond},
-		Buffer:   h.buffer,
-		Reporter: h.reporter,
-		Resender: resender,
-		Logger:   slog.New(slog.NewTextHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
-		Now:      func() time.Time { return now },
-		Backoff:  &client.Backoff{Rand: func() float64 { return 0.5 }},
-		Sleep:    h.sleeper.sleep,
-		Ticker:   h.ticker.factory,
+		Config:     cfg,
+		Client:     c,
+		Info:       sysinfo.Info{Hostname: "nas01", OS: "linux", Arch: "arm64", ReportedIPs: []string{"192.168.1.20"}, AgentUser: "ohmyjob", AgentUID: 1000},
+		State:      store,
+		Runner:     runner.Runner{Grace: 200 * time.Millisecond},
+		Buffer:     h.buffer,
+		Reporter:   h.reporter,
+		Resender:   resender,
+		Logger:     slog.New(slog.NewTextHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		Now:        func() time.Time { return now },
+		Backoff:    &client.Backoff{Rand: func() float64 { return 0.5 }},
+		Sleep:      h.sleeper.sleep,
+		Ticker:     h.ticker.factory,
+		Signals:    h.signals,
+		StopBudget: opts.stopBudget,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -39,6 +39,7 @@ type fakeServer struct {
 	rejectProto   *protocol.ErrorResponse
 	cancelWanted  map[string]bool
 	truncated     map[string]bool
+	holdFinish    chan struct{}
 }
 
 type failure struct {
@@ -128,6 +129,18 @@ func (f *fakeServer) TruncateOutput(runID string) {
 	defer f.mu.Unlock()
 
 	f.truncated[runID] = true
+}
+
+// HoldFinish makes every finish wait until the returned function is called,
+// so a test can see what else happens while an outcome is in flight.
+func (f *fakeServer) HoldFinish() (release func()) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	hold := make(chan struct{})
+	f.holdFinish = hold
+
+	return func() { close(hold) }
 }
 
 func (f *fakeServer) SetConfig(config protocol.AgentConfig) {
@@ -379,6 +392,14 @@ func (f *fakeServer) heartbeat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (f *fakeServer) finish(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	hold := f.holdFinish
+	f.mu.Unlock()
+
+	if hold != nil {
+		<-hold
+	}
+
 	if !f.guard(w, r, "finish") {
 		return
 	}
