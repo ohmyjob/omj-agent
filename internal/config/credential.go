@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ohmyjob/omj-agent/internal/atomicfile"
 )
 
 const (
@@ -82,7 +84,7 @@ func SaveCredential(paths Paths, credential Credential) error {
 		return fmt.Errorf("create configuration directory: %w", err)
 	}
 
-	if err := writeFileAtomically(paths.CredentialFile, []byte(credential.Secret()+"\n"), credentialFileMode, os.Rename); err != nil {
+	if err := atomicfile.Write(paths.CredentialFile, []byte(credential.Secret()+"\n"), credentialFileMode); err != nil {
 		return fmt.Errorf("save credential: %w", err)
 	}
 

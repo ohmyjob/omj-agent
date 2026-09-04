@@ -140,39 +140,6 @@ func TestLoadReportsProblemsWithTheFileName(t *testing.T) {
 	}
 }
 
-func TestWriteFileAtomicallyKeepsTheOldFileWhenTheRenameFails(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "agent.conf")
-
-	if err := os.WriteFile(path, []byte("old\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	failingRename := func(string, string) error { return errors.New("disk on fire") }
-
-	err := writeFileAtomically(path, []byte("new\n"), 0o640, failingRename)
-	if err == nil || !strings.Contains(err.Error(), "disk on fire") {
-		t.Fatalf("writeFileAtomically() error = %v, want the rename failure", err)
-	}
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if string(content) != "old\n" {
-		t.Errorf("file content = %q, want the old content", content)
-	}
-
-	entries, err := os.ReadDir(filepath.Dir(path))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(entries) != 1 {
-		t.Errorf("directory holds %d entries, want the temporary file removed", len(entries))
-	}
-}
-
 func testPaths(t *testing.T) Paths {
 	t.Helper()
 

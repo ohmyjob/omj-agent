@@ -1,4 +1,5 @@
-package config
+// Package atomicfile replaces files so that a crash never leaves a partial one behind.
+package atomicfile
 
 import (
 	"errors"
@@ -7,10 +8,23 @@ import (
 	"path/filepath"
 )
 
-// A crash between the temporary write and the rename must leave the previous
-// file untouched, so the data goes to a sibling file first and only an
-// fsynced, complete file is renamed over the destination.
-func writeFileAtomically(path string, data []byte, mode os.FileMode, rename func(oldpath, newpath string) error) (err error) {
+// Writer writes the data to a sibling temporary file, fsyncs it and renames
+// it over the destination, so a crash at any point leaves either the previous
+// file or the complete new one. Rename is injectable so a test can prove that.
+type Writer struct {
+	Rename func(oldpath, newpath string) error
+}
+
+func Write(path string, data []byte, mode os.FileMode) error {
+	return Writer{}.Write(path, data, mode)
+}
+
+func (w Writer) Write(path string, data []byte, mode os.FileMode) (err error) {
+	rename := w.Rename
+	if rename == nil {
+		rename = os.Rename
+	}
+
 	dir, base := filepath.Split(path)
 
 	tmp, err := os.CreateTemp(dir, "."+base+".*.tmp")

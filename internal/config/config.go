@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/ohmyjob/omj-agent/internal/atomicfile"
 )
 
 type Paths struct {
@@ -125,7 +127,7 @@ func Save(paths Paths, cfg Config) error {
 		return fmt.Errorf("create configuration directory: %w", err)
 	}
 
-	if err := writeFileAtomically(paths.ConfigFile, []byte(cfg.String()), configFileMode, os.Rename); err != nil {
+	if err := atomicfile.Write(paths.ConfigFile, []byte(cfg.String()), configFileMode); err != nil {
 		return fmt.Errorf("save configuration: %w", err)
 	}
 
