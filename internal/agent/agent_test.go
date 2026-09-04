@@ -834,3 +834,39 @@ func TestOutcomeOf(t *testing.T) {
 func ptr[T any](v T) *T {
 	return &v
 }
+
+func TestRepeatedCancellationIsActedOnOnce(t *testing.T) {
+	h := newHarness(t, harnessOptions{})
+
+	h.server.Enqueue(h.lease(runA, "sleep 30"))
+
+	release := h.server.HoldFinish()
+
+	// The Server lists a Run in cancel_run_ids until its finish is accepted,
+	// so the Agent sees the same id on every poll.
+	h.server.OnWork(func(count int, _ protocol.WorkRequest) {
+		if count >= 2 {
+			h.server.Cancel(runA)
+		}
+
+		if count >= 5 {
+			h.cancel()
+		}
+	})
+
+	if err := h.agent.Run(h.ctx); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	release()
+	h.agent.Wait()
+
+	if got := h.logs.count("cancellation requested"); got != 1 {
+		t.Fatalf("cancellation logged %d times, want 1", got)
+	}
+
+	reported := h.reporter.reported()
+	if len(reported) != 1 || !reported[0].Process.Wait().Cancelled {
+		t.Fatalf("reported = %+v, want one cancelled run", reported)
+	}
+}

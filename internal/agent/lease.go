@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ohmyjob/omj-agent/internal/client"
@@ -26,6 +27,8 @@ type Run struct {
 	Chunker              *output.Chunker
 	SpawnErr             error
 	CancelledBeforeStart bool
+
+	cancelOnce sync.Once
 }
 
 type verifiedLease struct {
