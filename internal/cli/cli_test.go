@@ -9,6 +9,9 @@ import (
 )
 
 func TestRun(t *testing.T) {
+	t.Setenv("OMJ_CONFIG_DIR", t.TempDir())
+	t.Setenv("OMJ_STATE_DIR", t.TempDir())
+
 	tests := []struct {
 		name       string
 		args       []string
@@ -21,9 +24,9 @@ func TestRun(t *testing.T) {
 		{name: "help flag", args: []string{"--help"}, wantCode: ExitOK, wantStdout: "Usage: omj-agent"},
 		{name: "unknown command", args: []string{"bogus"}, wantCode: ExitUsage, wantStderr: `unknown command "bogus"`},
 		{name: "enroll without flags", args: []string{"enroll"}, wantCode: ExitUsage, wantStderr: "--server and --token are required"},
-		{name: "run", args: []string{"run"}, wantCode: ExitError, wantStderr: "run is not implemented yet"},
-		{name: "status", args: []string{"status"}, wantCode: ExitError, wantStderr: "status is not implemented yet"},
-		{name: "doctor", args: []string{"doctor"}, wantCode: ExitError, wantStderr: "doctor is not implemented yet"},
+		{name: "run before enrollment", args: []string{"run"}, wantCode: ExitError, wantStderr: "agent.conf"},
+		{name: "status before enrollment", args: []string{"status"}, wantCode: ExitOK, wantStdout: "not enrolled"},
+		{name: "doctor before enrollment", args: []string{"doctor"}, wantCode: ExitError, wantStdout: "FAIL  configuration"},
 		{name: "version", args: []string{"version"}, wantCode: ExitOK, wantStdout: "omj-agent "},
 		{name: "version with an unknown flag", args: []string{"version", "--bogus"}, wantCode: ExitUsage, wantStderr: "flag provided but not defined"},
 	}

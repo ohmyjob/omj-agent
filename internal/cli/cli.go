@@ -21,10 +21,10 @@ type command struct {
 func commands() []command {
 	return []command{
 		{name: "enroll", summary: "Enroll this machine with a server", run: runEnroll},
-		{name: "run", summary: "Run the agent in the foreground", run: notImplemented("run")},
-		{name: "status", summary: "Show the configuration, machine id and server reachability", run: notImplemented("status")},
+		{name: "run", summary: "Run the agent in the foreground", run: runRun},
+		{name: "status", summary: "Show the configuration, machine id and server reachability", run: runStatus},
 		{name: "version", summary: "Print the agent and protocol versions", run: runVersion},
-		{name: "doctor", summary: "Check the installation and exit 1 on any problem", run: notImplemented("doctor")},
+		{name: "doctor", summary: "Check the installation and exit 1 on any problem", run: runDoctor},
 	}
 }
 
@@ -61,13 +61,5 @@ func usage(w io.Writer) {
 
 	for _, c := range commands() {
 		fmt.Fprintf(w, "  %-8s %s\n", c.name, c.summary)
-	}
-}
-
-func notImplemented(name string) func(args []string, stdout, stderr io.Writer) int {
-	return func(_ []string, _, stderr io.Writer) int {
-		fmt.Fprintf(stderr, "omj-agent %s is not implemented yet\n", name)
-
-		return ExitError
 	}
 }
