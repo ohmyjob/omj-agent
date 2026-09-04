@@ -1,0 +1,20 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - errcheck
+    - gosec
+    - misspell
+    - staticcheck
+  settings:
+    errcheck:
+      exclude-functions:
+        # Command output goes to stdout and stderr; a failed write has nowhere better to be reported.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    gosec:
+      excludes:
+        # Running user-defined commands is the product, so a variable in exec.Command is not a finding.
+        - G204
