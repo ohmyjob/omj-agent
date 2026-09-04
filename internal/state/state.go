@@ -33,17 +33,20 @@ type ActiveRun struct {
 }
 
 type RecentRun struct {
-	RunID      string    `json:"run_id"`
-	Status     string    `json:"status"`
-	ExitCode   *int      `json:"exit_code"`
-	FinishedAt time.Time `json:"finished_at"`
+	RunID      string     `json:"run_id"`
+	Status     string     `json:"status"`
+	ExitCode   *int       `json:"exit_code"`
+	StartedAt  *time.Time `json:"started_at"`
+	FinishedAt time.Time  `json:"finished_at"`
 }
 
 // Outcome describes how a Run ended; ExitCode is nil when the process never
-// reported one, for example after a spawn failure.
+// reported one, for example after a spawn failure, and StartedAt is nil when
+// it never started.
 type Outcome struct {
-	Status   string
-	ExitCode *int
+	Status    string
+	ExitCode  *int
+	StartedAt *time.Time
 }
 
 type contents struct {
@@ -149,7 +152,7 @@ func (s *Store) MarkFinished(runID string, outcome Outcome) error {
 
 	s.contents.ActiveRuns = slices.DeleteFunc(s.contents.ActiveRuns, func(r ActiveRun) bool { return r.RunID == runID })
 
-	recent := RecentRun{RunID: runID, Status: outcome.Status, ExitCode: cloneExitCode(outcome.ExitCode), FinishedAt: s.now()}
+	recent := RecentRun{RunID: runID, Status: outcome.Status, ExitCode: cloneExitCode(outcome.ExitCode), StartedAt: cloneTime(outcome.StartedAt), FinishedAt: s.now()}
 
 	if i := slices.IndexFunc(s.contents.RecentRuns, func(r RecentRun) bool { return r.RunID == runID }); i >= 0 {
 		s.contents.RecentRuns[i] = recent
@@ -178,6 +181,7 @@ func (s *Store) RecentOutcome(runID string) (RecentRun, bool) {
 
 	recent := s.contents.RecentRuns[i]
 	recent.ExitCode = cloneExitCode(recent.ExitCode)
+	recent.StartedAt = cloneTime(recent.StartedAt)
 
 	return recent, true
 }
@@ -241,6 +245,16 @@ func cloneExitCode(code *int) *int {
 	}
 
 	clone := *code
+
+	return &clone
+}
+
+func cloneTime(moment *time.Time) *time.Time {
+	if moment == nil {
+		return nil
+	}
+
+	clone := *moment
 
 	return &clone
 }

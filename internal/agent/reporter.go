@@ -52,6 +52,7 @@ func (r reporter) Resend(ctx context.Context, lease protocol.RunLease, outcome s
 	request := protocol.FinishRequest{
 		Status:     protocol.RunStatus(outcome.Status),
 		ExitCode:   outcome.ExitCode,
+		StartedAt:  outcome.StartedAt,
 		FinishedAt: outcome.FinishedAt,
 	}
 
@@ -105,7 +106,7 @@ func (p *report) deliver() {
 	request := p.finishRequest(result, lastSeq, truncated || p.serverTruncated || p.agent.buffer.Truncated(p.runID))
 	p.finish(request)
 
-	outcome := state.Outcome{Status: string(request.Status), ExitCode: request.ExitCode}
+	outcome := state.Outcome{Status: string(request.Status), ExitCode: request.ExitCode, StartedAt: request.StartedAt}
 	if err := p.agent.state.MarkFinished(p.runID, outcome); err != nil {
 		p.logger.Error("state not saved", "error", err)
 	}

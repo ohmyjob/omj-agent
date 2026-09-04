@@ -85,7 +85,8 @@ func TestRunsSurviveAReload(t *testing.T) {
 
 	f.now = epoch.Add(time.Minute)
 
-	if err := f.store.MarkFinished("run-2", Outcome{Status: "failed", ExitCode: exitCode(3)}); err != nil {
+	startedAt := epoch.Add(-time.Minute)
+	if err := f.store.MarkFinished("run-2", Outcome{Status: "failed", ExitCode: exitCode(3), StartedAt: &startedAt}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -108,9 +109,13 @@ func TestRunsSurviveAReload(t *testing.T) {
 		t.Fatal("RecentOutcome() did not find the finished run")
 	}
 
-	want := RecentRun{RunID: "run-2", Status: "failed", ExitCode: exitCode(3), FinishedAt: epoch.Add(time.Minute)}
+	want := RecentRun{RunID: "run-2", Status: "failed", ExitCode: exitCode(3), StartedAt: &startedAt, FinishedAt: epoch.Add(time.Minute)}
 	if recent.RunID != want.RunID || recent.Status != want.Status || *recent.ExitCode != *want.ExitCode || !recent.FinishedAt.Equal(want.FinishedAt) {
 		t.Errorf("RecentOutcome() = %+v, want %+v", recent, want)
+	}
+
+	if recent.StartedAt == nil || !recent.StartedAt.Equal(startedAt) {
+		t.Errorf("RecentOutcome().StartedAt = %v, want %s", recent.StartedAt, startedAt)
 	}
 
 	info, err := os.Stat(f.path)
@@ -120,6 +125,22 @@ func TestRunsSurviveAReload(t *testing.T) {
 
 	if mode := info.Mode().Perm(); mode != 0o600 {
 		t.Errorf("state file mode = %04o, want 0600", mode)
+	}
+}
+
+func TestRecentRunsWrittenBeforeTheStartTimeStillLoad(t *testing.T) {
+	f := load(t)
+
+	legacy := `{"machine_id":"machine-1","active_runs":[],"recent_runs":[{"run_id":"run-1","status":"success","exit_code":0,"finished_at":"2026-09-04T12:00:00Z"}]}`
+	if err := os.WriteFile(f.path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f.reload(t)
+
+	recent, ok := f.store.RecentOutcome("run-1")
+	if !ok || recent.Status != "success" || recent.StartedAt != nil {
+		t.Fatalf("RecentOutcome() = %+v, %v; want the legacy success without a start time", recent, ok)
 	}
 }
 
