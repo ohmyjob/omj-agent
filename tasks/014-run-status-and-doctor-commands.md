@@ -1,6 +1,6 @@
 # 014 · run, status and doctor commands
 
-Status: todo
+Status: done
 Repo: ohmyjob-agent
 Depends on: 013
 PRD: §16.4, §16.3 (hardening detection), §14.2 (`ping`)
@@ -29,3 +29,13 @@ Wire the daemon command and give operators two honest diagnostic commands.
 ## Tests
 
 - Check functions with fakes; CLI output snapshots for a healthy and an unhealthy host.
+
+## Outcome (2026-09-04)
+
+- `internal/doctor.Host` is the one place that reads the machine (paths, uid and user, clock, config and credential loaders, state loader, a `Dial` that builds the protocol client, and a `Systemctl` runner); `status` and `doctor` share it, and tests replace the parts that would need root, a Server or systemd. `DefaultSystemctl()` shells out only when `systemctl` is on the PATH, so macOS and containers report "systemd not present" instead of failing.
+- `doctor.Run` performs ten checks in the order an operator reads them: configuration, credential (mode 0600 and owner, the fix printed next to the failure), state directory writable (a temp file is created and removed), server, protocol, clock, service user, service, hardening, privileges. One ping feeds the server, protocol and clock checks; it is skipped, and those three say so, while the configuration or credential is broken. A 426 counts as reachable for the server check and fails the protocol check with the supported versions and the minimum agent version. Clock skew is measured against `server_time` at the moment the answer arrives and fails above 30 s.
+- Statuses stay `PASS`, `WARN`, `FAIL`; anything systemd-related without systemd is a `WARN`, so the command is useful on a developer machine, and only `FAIL` sets the exit code to 1. A service user that differs from the doctor's user is a `WARN` rather than a `FAIL`, because operators run `sudo omj-agent doctor` while the service runs as `ohmyjob`. `NoNewPrivileges=yes` warns that `sudo` inside Jobs will fail; other active directives are listed.
+- `status` is a report: it exits 0 whatever it finds, marks the lines it cannot fill with `FAIL` and a plain sentence (no stack trace), reads active Runs from the state file directly, and shows the ping result with the server version, server time and signed clock skew. Both commands bound the ping with a 15 s context.
+- `run` wires `config.Load`, `config.LoadCredential`, `client.New`, `sysinfo.Collect`, `state.Load`, `runner.Runner{MaxTimeout}`, `output.NewBuffer` and `agent.New`, logs to stdout with `slog` (text or `--log-format json`, level from `log_level` unless `--log-level` overrides it), installs no signal handler of its own, and maps a clean stop to 0, a forced stop (`agent.ErrForcedStop`) to the run-specific exit code 3, a configuration, credential or wiring error to 1 with the file named, and bad flags to 2.
+- No command prints the credential: the loaders return `config.Credential`, which redacts itself, and the output snapshots assert the secret is absent.
+
