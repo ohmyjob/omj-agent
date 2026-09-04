@@ -96,25 +96,48 @@ func (l Loader) Load(path string) (*Store, error) {
 	}
 
 	if err := json.Unmarshal(data, &store.contents); err != nil {
-		store.setAside(err)
+		if moved, renameErr := store.keepAside("corrupt"); renameErr != nil {
+			store.logger.Warn("state file is corrupt and could not be set aside; starting empty", "path", path, "error", err, "rename_error", renameErr)
+		} else {
+			store.logger.Warn("state file is corrupt; starting empty", "path", path, "moved_to", moved, "error", err)
+		}
+
 		store.contents = contents{}
 	}
 
 	return store, nil
 }
 
-// A corrupt state file must never keep the agent from starting, so it is
-// kept next to the fresh one for inspection instead of being overwritten.
-func (s *Store) setAside(cause error) {
-	moved := fmt.Sprintf("%s.corrupt-%s", s.path, s.now().UTC().Format("20060102T150405Z"))
+// Reset forgets every recorded Run and adopts a new Machine id. The Runs in
+// the previous file belong to the Machine this Agent was enrolled as before,
+// so they must never be reported again; the file is kept for inspection.
+func (s *Store) Reset(machineID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	if err := os.Rename(s.path, moved); err != nil {
-		s.logger.Warn("state file is corrupt and could not be set aside; starting empty", "path", s.path, "error", cause, "rename_error", err)
-
-		return
+	if moved, err := s.keepAside("replaced"); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			s.logger.Warn("previous state file could not be set aside", "path", s.path, "error", err)
+		}
+	} else {
+		s.logger.Info("previous state file kept for inspection", "moved_to", moved)
 	}
 
-	s.logger.Warn("state file is corrupt; starting empty", "path", s.path, "moved_to", moved, "error", cause)
+	s.contents = contents{MachineID: machineID}
+
+	return s.save()
+}
+
+// A state file the agent refuses to trust must never keep it from starting,
+// so it is renamed out of the way instead of being overwritten.
+func (s *Store) keepAside(label string) (string, error) {
+	moved := fmt.Sprintf("%s.%s-%s", s.path, label, s.now().UTC().Format("20060102T150405Z"))
+
+	if err := os.Rename(s.path, moved); err != nil {
+		return "", err
+	}
+
+	return moved, nil
 }
 
 func (s *Store) MachineID() string {

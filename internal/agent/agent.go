@@ -191,6 +191,7 @@ func New(opts Options) (*Agent, error) {
 // and a second signal ends that wait with ErrForcedStop. Runs still in
 // progress keep their goroutines, which Wait collects.
 func (a *Agent) Run(ctx context.Context) error {
+	a.adopt()
 	a.logStartup()
 	a.reconcile()
 
@@ -330,6 +331,9 @@ func (a *Agent) apply(received protocol.AgentConfig) {
 	}
 }
 
+// cancel stops the processes the Server asked for. It keeps listing a Run
+// until its finish is accepted, so acting once keeps the log honest and the
+// dying process untouched.
 func (a *Agent) cancel(ids []string) {
 	for _, id := range ids {
 		run, ok := a.registry.get(id)
@@ -337,8 +341,10 @@ func (a *Agent) cancel(ids []string) {
 			continue
 		}
 
-		a.logger.Info("cancellation requested", "run_id", id)
-		run.Process.Cancel(CancelRequested)
+		run.cancelOnce.Do(func() {
+			a.logger.Info("cancellation requested", "run_id", id)
+			run.Process.Cancel(CancelRequested)
+		})
 	}
 }
 

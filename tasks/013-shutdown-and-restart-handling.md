@@ -40,3 +40,8 @@ Stop honestly and start honestly: report what happened to Runs when the Agent go
 - The startup line logs the server URL, Machine id, user and uid, the three local limits and the active-run count; the credential is never in the Agent's hands (the client holds it and redacts it), and a test asserts it does not reach the log.
 - The fake Server gained `HoldFinish()` so tests can watch what happens while an outcome is in flight; the harness gained an injectable signal channel and stop budget and reports a user and uid in its `sysinfo.Info`.
 
+
+## Follow-up (2026-09-04)
+
+- The first end-to-end run against a live Server found `state.json` still holding `"machine_id": ""` after a successful enrolment and a full session of Runs: nothing ever called `SetMachineID`. `Agent.Run` now calls `adopt()` before the startup line and the reconciliation, so the id the Agent polls with is the id recorded in its state file.
+- A file whose recorded id differs from the configured one describes another Machine's Runs, which this Server would answer with 404, and re-sending their outcomes would be wrong. `adopt()` therefore warns with both ids and calls `state.Store.Reset()`, which keeps the old file as `state.json.replaced-<timestamp>` (the treatment a corrupt file already gets) and starts empty, so the reconciliation reports nothing.

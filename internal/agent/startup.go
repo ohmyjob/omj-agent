@@ -9,6 +9,33 @@ import (
 	"github.com/ohmyjob/omj-agent/internal/state"
 )
 
+// adopt makes the state file this Machine's own. A file left behind by a
+// previous enrolment describes another Machine's Runs, which this Server
+// would not recognise, so it is set aside rather than reported.
+func (a *Agent) adopt() {
+	recorded := a.state.MachineID()
+
+	if recorded == a.cfg.MachineID {
+		return
+	}
+
+	if recorded != "" {
+		a.logger.Warn("state file belongs to another machine; starting empty",
+			"recorded_machine_id", recorded,
+			"machine_id", a.cfg.MachineID)
+
+		if err := a.state.Reset(a.cfg.MachineID); err != nil {
+			a.logger.Error("state not saved", "error", err)
+		}
+
+		return
+	}
+
+	if err := a.state.SetMachineID(a.cfg.MachineID); err != nil {
+		a.logger.Error("state not saved", "error", err)
+	}
+}
+
 func (a *Agent) logStartup() {
 	a.logger.Info("agent starting",
 		"server_url", a.cfg.ServerURL,

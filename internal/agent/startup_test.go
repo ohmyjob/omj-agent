@@ -115,3 +115,49 @@ func TestStartupLogsTheConfigurationWithoutTheCredential(t *testing.T) {
 		t.Fatal("the credential reached the log")
 	}
 }
+
+func TestStartupRecordsTheMachineIdInTheStateFile(t *testing.T) {
+	h := newHarness(t, harnessOptions{stopAfter: 1})
+
+	if got := h.store.MachineID(); got != "" {
+		t.Fatalf("machine id before the run = %q, want empty", got)
+	}
+
+	h.run(t)
+
+	if got := h.store.MachineID(); got != h.server.MachineID {
+		t.Fatalf("machine id = %q, want %q", got, h.server.MachineID)
+	}
+}
+
+func TestStateFileOfAnotherMachineIsSetAside(t *testing.T) {
+	h := newHarness(t, harnessOptions{stopAfter: 1, before: func(h *harness) {
+		if err := h.store.SetMachineID("11111111-2222-3333-4444-555555555555"); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := h.store.MarkActive(state.ActiveRun{RunID: runA, PID: 4242, PGID: 4242, StartedAt: h.now}); err != nil {
+			t.Fatal(err)
+		}
+	}})
+
+	h.run(t)
+
+	if got := h.store.MachineID(); got != h.server.MachineID {
+		t.Fatalf("machine id = %q, want %q", got, h.server.MachineID)
+	}
+
+	if active := h.store.Active(); len(active) != 0 {
+		t.Fatalf("active runs = %+v, want none", active)
+	}
+
+	// The Runs belong to the previous enrolment, so the Server never hears
+	// about them.
+	if finishes := h.server.Finishes(); len(finishes) != 0 {
+		t.Fatalf("finishes = %+v, want none", finishes)
+	}
+
+	if h.logs.count("state file belongs to another machine") != 1 {
+		t.Fatalf("log = %q, want one warning about the foreign state file", h.logs.buf.String())
+	}
+}

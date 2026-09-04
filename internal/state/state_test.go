@@ -351,3 +351,66 @@ func TestStoreIsSafeForConcurrentUse(t *testing.T) {
 		t.Errorf("recent runs = %d, want %d", got, workers/2)
 	}
 }
+
+func TestResetAdoptsANewMachineAndKeepsThePreviousFile(t *testing.T) {
+	f := load(t)
+
+	if err := f.store.SetMachineID("machine-one"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.store.MarkActive(ActiveRun{RunID: "run-1", PID: 7, PGID: 7, StartedAt: epoch}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.store.MarkFinished("run-1", Outcome{Status: "success", ExitCode: exitCode(0)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := f.store.Reset("machine-two"); err != nil {
+		t.Fatalf("Reset() error = %v", err)
+	}
+
+	if got := f.store.MachineID(); got != "machine-two" {
+		t.Errorf("MachineID() = %q, want machine-two", got)
+	}
+
+	if _, ok := f.store.RecentOutcome("run-1"); ok {
+		t.Error("a run of the previous machine survived the reset")
+	}
+
+	moved := f.path + ".replaced-20260904T120000Z"
+	if _, err := os.Stat(moved); err != nil {
+		t.Errorf("the previous file was not kept: %v", err)
+	}
+
+	if !strings.Contains(f.log.String(), moved) {
+		t.Errorf("log = %q, want a line naming %s", f.log.String(), moved)
+	}
+
+	f.reload(t)
+
+	if got := f.store.MachineID(); got != "machine-two" {
+		t.Errorf("MachineID() after a reload = %q, want machine-two", got)
+	}
+
+	if got := f.store.Active(); len(got) != 0 {
+		t.Errorf("Active() after a reload = %v, want none", got)
+	}
+}
+
+func TestResetWithoutAFileStartsClean(t *testing.T) {
+	f := load(t)
+
+	if err := f.store.Reset("machine-one"); err != nil {
+		t.Fatalf("Reset() error = %v", err)
+	}
+
+	if got := f.store.MachineID(); got != "machine-one" {
+		t.Errorf("MachineID() = %q, want machine-one", got)
+	}
+
+	if strings.Contains(f.log.String(), "could not be set aside") {
+		t.Errorf("log = %q, want no warning when there was no file", f.log.String())
+	}
+}
