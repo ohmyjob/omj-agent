@@ -1,0 +1,26 @@
+[Unit]
+Description=Oh My Job Agent
+Documentation=https://ohmyjob.com/docs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ohmyjob
+Group=ohmyjob
+ExecStart=/usr/local/bin/omj-agent run
+WorkingDirectory=/var/lib/ohmyjob
+Restart=always
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=30
+
+# Hardening is opt-in because each directive breaks ordinary Jobs in some way.
+# Uncomment what your Jobs can live with; `omj-agent doctor` reports what is active.
+# NoNewPrivileges=true    # sudo inside Jobs stops working
+# PrivateTmp=true         # Jobs cannot share /tmp with other services
+# ProtectSystem=full      # /usr, /boot and /etc are read-only, even for sudo children
+# ProtectHome=read-only   # breaks installations that run as an existing user (--user)
+
+[Install]
+WantedBy=multi-user.target
