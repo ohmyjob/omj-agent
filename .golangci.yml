@@ -18,3 +18,7 @@ linters:
       excludes:
         # Running user-defined commands is the product, so a variable in exec.Command is not a finding.
         - G204
+        # The agent only opens files at paths it derives from its own configuration; none comes from a request.
+        - G304
+        # Field and file names contain the word credential; the secret itself is never a literal.
+        - G101
