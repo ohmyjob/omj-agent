@@ -49,3 +49,31 @@ jobs:
 
       - name: Install a packaged release inside Debian and Fedora
         run: make test-install
+
+  release-snapshot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build a snapshot release
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.18.0
+          args: release --snapshot --clean
+
+      - name: Verify the checksums
+        run: cd dist && sha256sum -c SHA256SUMS
+
+      - name: Install the snapshot inside Debian and Fedora
+        run: make test-install RELEASE_DIR=dist
