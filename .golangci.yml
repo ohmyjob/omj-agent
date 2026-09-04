@@ -22,3 +22,5 @@ linters:
         - G304
         # Field and file names contain the word credential; the secret itself is never a literal.
         - G101
+        # Backoff jitter only spreads retries out; it has no security purpose.
+        - G404
