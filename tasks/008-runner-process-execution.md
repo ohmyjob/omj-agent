@@ -1,6 +1,6 @@
 # 008 · Runner: process execution
 
-Status: todo
+Status: done
 Repo: ohmyjob-agent
 Depends on: 002
 PRD: §16.5 (environment, shell, working directory, exit codes), §16.8, §21
@@ -31,3 +31,14 @@ Start a command exactly as specified, in a clean environment, in its own process
 ## Tests
 
 - Shell-script based table tests; run with `-race`.
+
+## Outcome (2026-09-04)
+
+- A spawn failure is `Start`'s error, because there is no process to wait on: a working directory that does not exist (the message names it and wraps `os.ErrNotExist`), a shell that cannot be executed, an empty command, or a context that is already done. `Result.Err` is reserved for failures observed while waiting; a non-zero exit is not an error.
+- Output reaches the `Sink` through `exec`'s own copying goroutines, one per stream, behind small `io.Writer` adapters. The slice passed to `Write` is only valid during the call, and a `Write` that blocks blocks the child, so task 010's sink must copy and never block.
+- `cmd.WaitDelay` is two seconds: once the shell has exited, a grandchild holding the pipes can delay `Wait` by at most that long, after which the pipes are closed and its later output is lost. `exec.ErrWaitDelay` is swallowed because the child's exit status is already known.
+- `Timeout` and `MaxOutput` travel in the `Spec` but nothing enforces them here: the timeout, cancellation and `TimedOut`/`Cancelled` belong to task 009, the output cap to task 010. The context only gates the start; task 009 wires cancellation through the process group.
+- `Result.Signal` is an `os.Signal` so callers outside `process_unix.go` never import `syscall`; death by signal reports `128 + signal`. `PGID()` comes from `Getpgid` right after the start, falling back to the PID that `Setpgid` made the group leader.
+- The environment is emitted in sorted key order for determinism, and every default including `LANG` and `PATH` may be overridden by the Job. The shell itself adds `PWD`, `OLDPWD`, `SHLVL` or `_`, which is why the environment test tolerates those four and nothing else.
+- Only `process_unix.go` imports `syscall`; there is no `!unix` stub because Windows is not a v1 target and the module still builds on macOS and Linux.
+
