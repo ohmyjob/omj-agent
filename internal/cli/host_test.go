@@ -90,8 +90,6 @@ func writeCredential(t *testing.T, paths config.Paths) {
 	}
 }
 
-// healthyHost is an enrolled machine whose Server, clock and service are
-// all in order, with one Run in progress.
 func healthyHost(t *testing.T) doctor.Host {
 	t.Helper()
 
@@ -128,8 +126,6 @@ func healthyHost(t *testing.T) doctor.Host {
 	}
 }
 
-// unhealthyHost is the same machine run as root, with a credential anyone
-// can read and no systemd.
 func unhealthyHost(t *testing.T) doctor.Host {
 	t.Helper()
 

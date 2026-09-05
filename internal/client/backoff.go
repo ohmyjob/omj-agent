@@ -19,11 +19,9 @@ const (
 	AuthRetryInterval = 5 * time.Minute
 )
 
-// Sleeper waits for the duration or until the context ends.
 type Sleeper func(ctx context.Context, d time.Duration) error
 
-// Backoff produces the exponential, jittered delays of PRD §16.6. The zero
-// value uses the protocol defaults; Rand and Sleep are injectable for tests.
+// Backoff uses the protocol defaults when zero-valued.
 type Backoff struct {
 	Min    time.Duration
 	Max    time.Duration

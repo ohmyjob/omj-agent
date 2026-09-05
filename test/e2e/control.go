@@ -10,11 +10,8 @@ import (
 	"time"
 )
 
-// networkName matches the network the compose project declares, which is what a test
-// disconnects a container from to simulate a Machine losing its link.
 const networkName = "omj-e2e-harness"
 
-// containerID resolves a compose service to the container a docker command needs.
 func (h *harness) containerID(ctx context.Context, service string) string {
 	h.t.Helper()
 
@@ -31,8 +28,6 @@ func (h *harness) containerID(ctx context.Context, service string) string {
 	return id
 }
 
-// disconnect cuts a Machine off the way a network failure would: the Agent keeps
-// running and its processes keep going, it simply cannot reach the Server.
 func (h *harness) disconnect(ctx context.Context, service string) {
 	h.t.Helper()
 
@@ -61,9 +56,7 @@ func (h *harness) reconnectOnce(ctx context.Context, service string, done *bool)
 	h.connect(ctx, service)
 }
 
-// processCount counts matching processes inside a container. The bracket around the
-// first character keeps grep from counting its own command line, and busybox ps prints
-// the full argument list, so this works on the Alpine image the Agent runs in.
+// Bracket the first character so grep cannot match its own command line.
 func (h *harness) processCount(ctx context.Context, service, pattern string) int {
 	h.t.Helper()
 
@@ -87,7 +80,6 @@ func (h *harness) processCount(ctx context.Context, service, pattern string) int
 	return count
 }
 
-// cancel asks for cancellation through the page an operator uses.
 func (h *harness) cancel(ctx context.Context, run string) {
 	h.t.Helper()
 
@@ -96,8 +88,6 @@ func (h *harness) cancel(ctx context.Context, run string) {
 	}
 }
 
-// awaitStatus waits for one particular state, which a scenario needs when the state it
-// cares about is not terminal, such as a Run reaching running before it is interrupted.
 func (h *harness) awaitStatus(ctx context.Context, run, status string, within time.Duration) runProps {
 	h.t.Helper()
 
@@ -112,7 +102,6 @@ func (h *harness) awaitStatus(ctx context.Context, run, status string, within ti
 	return seen
 }
 
-// awaitMachineOffline waits for the Server to notice a Machine has stopped reporting.
 func (h *harness) awaitMachineOffline(ctx context.Context, name string, within time.Duration) {
 	h.t.Helper()
 
@@ -126,7 +115,6 @@ func (h *harness) awaitMachineOffline(ctx context.Context, name string, within t
 	})
 }
 
-// machine reads one Machine from the list page.
 func (h *harness) machine(ctx context.Context, name string) (machineProps, bool) {
 	h.t.Helper()
 
@@ -149,16 +137,13 @@ func (h *harness) machine(ctx context.Context, name string) (machineProps, bool)
 	return machineProps{}, false
 }
 
-// dueNextMinute returns a cron expression that fires once, at a minute far enough ahead
-// that the Job exists and its Machine has been seen offline before the scheduler claims
-// it. A single occurrence per hour keeps a scenario from absorbing later ones by accident.
+// Leave time for setup before the due minute; hourly recurrence avoids accidental coalescing.
 func dueNextMinute(margin time.Duration) (expression string, due time.Time) {
 	due = time.Now().UTC().Add(margin).Truncate(time.Minute).Add(time.Minute)
 
 	return fmt.Sprintf("%d * * * *", due.Minute()), due
 }
 
-// awaitRunOfJob waits for the scheduler to produce a Run for a Job and returns it.
 func (h *harness) awaitRunOfJob(ctx context.Context, job string, within time.Duration) runProps {
 	h.t.Helper()
 
@@ -178,9 +163,7 @@ func (h *harness) awaitRunOfJob(ctx context.Context, job string, within time.Dur
 	return first
 }
 
-// handOverDirectory gives a scratch configuration directory to the service user. Enroll
-// runs as root and hands the two files over, but the directory it creates stays root's,
-// so the daemon could not otherwise read its own configuration.
+// Enrollment transfers file ownership but leaves the directory owned by root.
 func (h *harness) handOverDirectory(ctx context.Context, service, directory string) {
 	h.t.Helper()
 
@@ -189,10 +172,6 @@ func (h *harness) handOverDirectory(ctx context.Context, service, directory stri
 	}
 }
 
-// startAgentIn runs a daemon against its own configuration directory, with extra
-// environment of the caller's choosing, and keeps its log where a scenario can read it.
-// It is how a scenario runs a second Agent in a container that already has one, and it
-// runs as the service user because that is who owns the credential.
 func (h *harness) startAgentIn(ctx context.Context, service, directory, logPath string, environment map[string]string) error {
 	args := []string{"exec", "-d", "-u", "ohmyjob", "-e", "OMJ_CONFIG_DIR=" + directory, "-e", "OMJ_STATE_DIR=" + directory}
 
@@ -208,7 +187,6 @@ func (h *harness) startAgentIn(ctx context.Context, service, directory, logPath 
 	return err
 }
 
-// agentLog reads what a daemon has written so far.
 func (h *harness) agentLog(ctx context.Context, service, path string) string {
 	h.t.Helper()
 

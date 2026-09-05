@@ -55,7 +55,6 @@ func (r Report) Failed() bool {
 	return false
 }
 
-// Run performs every check in the order an operator would want to read them.
 func Run(ctx context.Context, host Host) Report {
 	h := host.WithDefaults()
 
@@ -125,7 +124,6 @@ func (h Host) checkStateDir() Check {
 	return Check{"state directory", Pass, dir + " is writable"}
 }
 
-// ServerCheck is the reachability verdict, shared with status.
 func (h Host) ServerCheck(cfg config.Config, probe Probe) Check {
 	var (
 		apiErr  *client.APIError
@@ -315,7 +313,6 @@ func (h Host) checkRoot() Check {
 	return Check{"privileges", Pass, fmt.Sprintf("running as %s (uid %d)", h.Username, h.UID)}
 }
 
-// show reads unit properties as systemctl prints them, one key=value per line.
 func (h Host) show(ctx context.Context, properties ...string) (map[string]string, error) {
 	out, err := h.Systemctl.Run(ctx, "show", unit, "-p", strings.Join(properties, ","))
 	if err != nil {

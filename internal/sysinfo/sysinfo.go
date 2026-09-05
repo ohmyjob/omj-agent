@@ -32,7 +32,7 @@ type Info struct {
 	AgentUID      int
 }
 
-// Collector lets tests point at sample files and capture the debug log; the zero value reads the host.
+// Collector reads the local host when zero-valued.
 type Collector struct {
 	OSReleasePath string
 	Logger        *slog.Logger

@@ -1,6 +1,4 @@
-// Package client speaks version 1 of the agent protocol: it builds the
-// requests, maps the Server's errors to types the Agent can act on, and
-// retries the ones that are safe to retry.
+// Package client implements the Server's agent protocol.
 package client
 
 import (

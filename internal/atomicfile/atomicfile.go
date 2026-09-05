@@ -8,9 +8,7 @@ import (
 	"path/filepath"
 )
 
-// Writer writes the data to a sibling temporary file, fsyncs it and renames
-// it over the destination, so a crash at any point leaves either the previous
-// file or the complete new one. Rename is injectable so a test can prove that.
+// Writer uses fsync and a sibling-file rename so crashes cannot leave partial data.
 type Writer struct {
 	Rename func(oldpath, newpath string) error
 }

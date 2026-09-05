@@ -10,14 +10,8 @@ import (
 	"time"
 )
 
-// TestOfflineScenarios proves what the Server does with an occurrence whose Machine is
-// not there to run it: hold it within the grace period, give up beyond it, skip it when
-// the Job says so, and fold a run of missed occurrences into one late Run.
-//
-// They share one harness and one Machine, and each Job fires once an hour except the
-// coalescing one, so a scenario cannot absorb another's occurrence. Each disconnects
-// agent-b and waits for the Server to report it offline before creating its Job, which
-// is slower than counting seconds but does not depend on the clock lining up.
+// Hourly schedules isolate scenarios sharing one Machine; only coalescing runs every minute.
+// Wait for the Server's offline verdict instead of assuming the sweep's clock alignment.
 func TestOfflineScenarios(t *testing.T) {
 	h := start(t)
 
@@ -83,9 +77,7 @@ func TestOfflineScenarios(t *testing.T) {
 			t.Fatalf("the Run is %q before the Machine returns, want queued: %s", run.Status, run.Explanation)
 		}
 
-		// A Run counts as late only once it starts more than a minute after it was due,
-		// so the Machine has to stay away past that for this to exercise the late path
-		// rather than a prompt start that happens to have waited.
+		// The Server considers a start late only after it is more than a minute overdue.
 		if wait := time.Until(due.Add(75 * time.Second)); wait > 0 {
 			time.Sleep(wait)
 		}
@@ -162,8 +154,6 @@ func TestOfflineScenarios(t *testing.T) {
 			Schedule: "* * * * *",
 		})
 
-		// Every minute the scheduler folds another occurrence into the queued Run, so
-		// waiting for a count of two proves absorption rather than a fixed sleep would.
 		var queued runProps
 
 		eventually(t, 4*time.Minute, "two occurrences folding into one Run", func() (bool, string) {

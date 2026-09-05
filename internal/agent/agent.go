@@ -1,7 +1,4 @@
-// Package agent runs the main loop: it asks the Server for work, verifies
-// every lease before anything else, starts the process and hands it to a
-// reporter, and rides out Server outages without ever killing a running
-// process.
+// Package agent executes leases and reports outcomes across Server outages.
 package agent
 
 import (
@@ -22,14 +19,10 @@ import (
 )
 
 const (
-	// MaxSlots is the largest number of new Runs one work request may ask for.
 	MaxSlots = 16
 
-	// MaxPollWait is the longest wait the work request may ask for.
 	MaxPollWait = 25 * time.Second
 
-	// CancelRequested is the cancel reason handed to the runner when the
-	// Server asks for a Run to stop.
 	CancelRequested = "cancel_requested"
 
 	// A lease is refused when its expiry is further in the past than the
@@ -37,7 +30,6 @@ const (
 	clockTolerance = 5 * time.Second
 )
 
-// Settings is the timing the last work response asked the Agent to apply.
 type Settings struct {
 	HeartbeatInterval time.Duration
 	FlushInterval     time.Duration
@@ -149,9 +141,7 @@ func New(opts Options) (*Agent, error) {
 		a.stopBudget = DefaultStopBudget
 	}
 
-	// Reporters outlive the polling context: an Agent that is stopping still
-	// has to tell the Server how its Runs ended. This context ends them only
-	// when the stop budget is spent.
+	// Reporters outlive polling so shutdown can deliver outcomes within the stop budget.
 	a.reportCtx, a.stopReporting = context.WithCancel(context.Background())
 
 	if a.reporter == nil {
@@ -277,9 +267,7 @@ func (a *Agent) workRequest() protocol.WorkRequest {
 	}
 }
 
-// delayAfter decides how long to wait before the next work request. A
-// rejected credential or protocol cannot be fixed by waiting, so those
-// retry slowly with a message an operator can act on.
+// Rejected credentials and protocols need operator intervention, so retry them slowly.
 func (a *Agent) delayAfter(err error) time.Duration {
 	var apiErr *client.APIError
 
@@ -372,8 +360,6 @@ func sleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// OutcomeOf translates how a process ended into what the finish report and
-// the state file record.
 func OutcomeOf(result runner.Result) (protocol.RunStatus, *int, *protocol.FinishReason) {
 	code := result.ExitCode
 

@@ -13,8 +13,6 @@ import (
 	"github.com/ohmyjob/omj-agent/internal/state"
 )
 
-// Ticker hands out the channels a reporter paces itself by; tests inject one
-// they drive by hand.
 type Ticker func(interval time.Duration) (ticks <-chan time.Time, stop func())
 
 func realTicker(interval time.Duration) (<-chan time.Time, func()) {
@@ -23,9 +21,6 @@ func realTicker(interval time.Duration) (<-chan time.Time, func()) {
 	return ticker.C, ticker.Stop
 }
 
-// reporter is the Reporter and Resender an Agent uses unless a test injects
-// its own: it streams a Run's output, keeps its heartbeat, reacts to
-// cancellation and delivers the outcome even across a Server outage.
 type reporter struct {
 	agent *Agent
 }
@@ -45,9 +40,7 @@ func (r reporter) Report(ctx context.Context, run *Run) {
 	p.deliver()
 }
 
-// Resend answers a lease for a Run whose outcome is already on record. One
-// attempt is enough: the polling loop calls this, and the Server asks again
-// if the answer is lost.
+// Resend makes one attempt; the Server repeats the lease if the answer is lost.
 func (r reporter) Resend(ctx context.Context, lease protocol.RunLease, outcome state.RecentRun) error {
 	request := protocol.FinishRequest{
 		Status:     protocol.RunStatus(outcome.Status),
@@ -114,7 +107,6 @@ func (p *report) deliver() {
 	p.agent.buffer.Forget(p.runID)
 }
 
-// supervise streams output and heartbeats until the process exits.
 func (p *report) supervise() runner.Result {
 	settings := p.agent.Settings()
 
@@ -264,8 +256,7 @@ func (p *report) cancel() {
 	p.run.Process.Cancel(CancelRequested)
 }
 
-// drain sends what is still buffered once the process has exited, retrying
-// through outages, so the finish report never overtakes the output.
+// Drain before reporting finish so the outcome cannot overtake buffered output.
 func (p *report) drain() {
 	for !p.outputDone {
 		batch := p.agent.buffer.NextBatch(p.runID)

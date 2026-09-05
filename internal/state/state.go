@@ -65,7 +65,6 @@ type Store struct {
 	contents contents
 }
 
-// Loader lets tests inject the clock the caps and the corrupt-file name use.
 type Loader struct {
 	Now    func() time.Time
 	Logger *slog.Logger

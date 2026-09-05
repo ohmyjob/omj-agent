@@ -7,9 +7,7 @@ var (
 	Date    = "unknown"
 )
 
-// ProtocolVersion is a variable rather than a constant so the end-to-end suite can
-// build an Agent that claims an unsupported version and watch the Server refuse it.
-// Only a binary built with the e2e tag reads that override; see protocol_e2e.go.
+// ProtocolVersion is mutable for the e2e-only compatibility override.
 var ProtocolVersion = 1
 
 func UserAgent() string {

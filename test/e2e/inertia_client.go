@@ -25,7 +25,6 @@ type inertiaClient struct {
 	version string
 }
 
-// page is the payload Inertia returns for an XHR navigation.
 type page struct {
 	Component string          `json:"component"`
 	Props     json.RawMessage `json:"props"`
@@ -103,7 +102,6 @@ func (c *inertiaClient) deferred(ctx context.Context, path, key string) (*page, 
 	})
 }
 
-// json reads a plain JSON endpoint, such as a Run's log window, which is not a page.
 func (c *inertiaClient) json(ctx context.Context, path string, into any) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
@@ -228,7 +226,6 @@ func (c *inertiaClient) login(ctx context.Context, email, password string) error
 	return nil
 }
 
-// props decodes a page's props into a typed struct.
 func props[T any](p *page) (T, error) {
 	var into T
 

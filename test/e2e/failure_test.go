@@ -11,10 +11,7 @@ import (
 	"time"
 )
 
-// TestFailureScenarios proves what happens when a command outlives its limits, when an
-// operator stops it, when the link to the Server drops mid-Run and when the Agent
-// itself restarts. They share one harness because bringing the images up costs far more
-// than any single scenario, and they all run on agent-a so nothing interferes.
+// Share a harness to avoid rebuilding containers for each scenario.
 func TestFailureScenarios(t *testing.T) {
 	h := start(t)
 
@@ -59,8 +56,7 @@ func TestFailureScenarios(t *testing.T) {
 		run := h.runNow(ctx, job)
 		h.awaitStatus(ctx, run, "running", 60*time.Second)
 
-		// The children are started by the shell, so give them a moment to exist before
-		// asking for cancellation; otherwise the scenario could pass without them.
+		// Wait for children so cancellation cannot pass without exercising their cleanup.
 		eventually(t, 20*time.Second, "both children starting", func() (bool, string) {
 			running := h.processCount(ctx, "agent-a", "sleep 300")
 
@@ -103,8 +99,7 @@ func TestFailureScenarios(t *testing.T) {
 		h.disconnect(ctx, "agent-a")
 		defer h.reconnectOnce(context.WithoutCancel(ctx), "agent-a", &reconnected)
 
-		// Shorter than OMJ_RUN_LOST_AFTER_SECONDS, so the Server has no reason to give
-		// up on the Run: this scenario is about the output, not about being declared lost.
+		// Stay below the lost-run threshold to isolate output replay from recovery.
 		time.Sleep(20 * time.Second)
 
 		h.reconnectOnce(ctx, "agent-a", &reconnected)
@@ -139,8 +134,6 @@ func TestFailureScenarios(t *testing.T) {
 			t.Fatalf("start the daemon again: %v", err)
 		}
 
-		// Waiting for the Machine to report in proves the daemon is really back, so a
-		// Run still running after this is the Server's answer rather than a dead Agent.
 		h.awaitOnlineMachines(ctx, 1)
 
 		final := h.awaitTerminal(ctx, run, 150*time.Second)
@@ -155,13 +148,10 @@ func TestFailureScenarios(t *testing.T) {
 			t.Errorf("%d interrupted processes survived the restart, want none", surviving)
 		}
 
-		// The Agent's own log is the evidence that the restart is what ended this Run.
 		if log := h.agentLog(ctx, "agent-a", "/tmp/omj-agent.log"); !strings.Contains(log, "reporting it as lost") {
 			t.Errorf("the Agent did not report the interrupted Run after restarting: %s", tail(log, 10))
 		}
 
-		// A quick Job proves the Agent went back to work, without waiting out another
-		// minute-long command.
 		after := h.createJob(ctx, jobRequest{
 			Name:     "Works after a restart",
 			Machine:  machine,
@@ -169,17 +159,12 @@ func TestFailureScenarios(t *testing.T) {
 			Schedule: "0 10 * * *",
 		})
 
-		// The old Agent can leave a long-poll request alive on the Server. If that
-		// request claims this Run after the container has gone, the dispatch lease
-		// must expire before the new Agent receives it. Allow the 60-second lease and
-		// the following minute scheduler sweep rather than assuming the first lease
-		// reaches the surviving connection.
+		// A stale long poll can claim the lease after restart. Allow its 60-second
+		// expiry and the next scheduler sweep before expecting the new Agent to receive it.
 		if next := h.awaitTerminal(ctx, h.runNow(ctx, after), 180*time.Second); next.Status != "success" {
 			t.Errorf("the first Run after the restart ended %q, want success: %s", next.Status, next.Explanation)
 		}
 
-		// The interrupted Run must stay exactly one terminal Run: an Agent that replayed
-		// its state file, or a Server that re-leased the work, would show otherwise.
 		if again := h.runPage(ctx, run); again.Status != "lost" {
 			t.Errorf("the lost Run changed to %q after a later Run", again.Status)
 		}
@@ -208,14 +193,11 @@ func TestFailureScenarios(t *testing.T) {
 		h.disconnect(ctx, "agent-a")
 		defer h.reconnectOnce(context.WithoutCancel(ctx), "agent-a", &reconnected)
 
-		// OMJ_RUN_LOST_AFTER_SECONDS is 60 in the harness and the sweep runs once a
-		// minute, so the Server needs up to two minutes to give up on a Run whose
-		// process is in fact still going.
+		// The 60-second lost-run threshold plus the minute sweep can take two minutes.
 		h.awaitStatus(ctx, run, "lost", 150*time.Second)
 
 		h.reconnectOnce(ctx, "agent-a", &reconnected)
 
-		// The heartbeat is what brings it back, before the command has finished.
 		h.awaitStatus(ctx, run, "running", 60*time.Second)
 
 		final := h.awaitTerminal(ctx, run, 150*time.Second)
@@ -256,9 +238,6 @@ func assertStartedOnce(t *testing.T, log, runID string) {
 	}
 }
 
-// assertLinesInOrder checks that a log carries every line the command printed, exactly
-// once each and in the order they were written. A replay after a disconnection is the
-// one place where duplicates or reordering would show up.
 func assertLinesInOrder(t *testing.T, log string, count int) {
 	t.Helper()
 

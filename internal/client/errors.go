@@ -12,15 +12,10 @@ import (
 	"github.com/ohmyjob/omj-agent/internal/protocol"
 )
 
-// ErrResponseTooLarge is returned when a response body exceeds MaxResponseBytes.
 var ErrResponseTooLarge = errors.New("response body exceeds 1 MiB")
 
-// ErrNoCredential is returned by every call except Enroll when the client has
-// no credential to send.
 var ErrNoCredential = errors.New("no credential: the agent is not enrolled")
 
-// APIError is a non-2xx answer from the Server, decoded from the protocol
-// error shape.
 type APIError struct {
 	Status                    int
 	Code                      protocol.ErrorCode
