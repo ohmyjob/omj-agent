@@ -10,6 +10,12 @@ here; see [docs/releasing.md](docs/releasing.md).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.1] - 2026-09-05
+
+Protocol version 1, for Server 0.1.0 or newer.
+
 ### Fixed
 
 - A cancellation is acted on once. The Server keeps a Run in `cancel_run_ids`
@@ -64,5 +70,6 @@ First release. Protocol version 1, for Server 0.1.0 or newer.
   credential is read only from a `0600` file, never from a flag or the
   environment, and is redacted everywhere it could be printed.
 
-[unreleased]: https://github.com/ohmyjob/omj-agent/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/ohmyjob/omj-agent/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ohmyjob/omj-agent/releases/tag/v0.1.1
 [0.1.0]: https://github.com/ohmyjob/omj-agent/releases/tag/v0.1.0
