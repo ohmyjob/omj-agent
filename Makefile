@@ -8,6 +8,8 @@ GORELEASER_VERSION := 2.18.0
 GORELEASER ?= $(shell command -v goreleaser 2>/dev/null || echo go run github.com/goreleaser/goreleaser/v2@v$(GORELEASER_VERSION))
 SERVER_DIR ?= ../omj-server
 OMJ_SERVER_IMAGE ?= ohmyjob/server:e2e
+E2E_COUNT ?= 1
+E2E_TIMEOUT ?= 45m
 
 .PHONY: build test lint fmt clean sync-fixtures test-install release-snapshot e2e server-image
 
@@ -42,7 +44,7 @@ release-snapshot:
 # Docker). The images are private, so the Server image is built from a server checkout
 # unless OMJ_SERVER_IMAGE names one that can be pulled.
 e2e:
-	go test -tags e2e -count=1 -timeout 20m ./test/e2e/...
+	go test -tags e2e -count=$(E2E_COUNT) -timeout $(E2E_TIMEOUT) -v ./test/e2e/...
 
 # Builds the Server image the harness defaults to: make server-image SERVER_DIR=../omj-server
 server-image:

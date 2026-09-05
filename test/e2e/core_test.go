@@ -19,12 +19,14 @@ type machineListProps struct {
 }
 
 type machineProps struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	OS        string `json:"os"`
-	Arch      string `json:"arch"`
-	AgentUser string `json:"agent_user"`
-	IsOnline  bool   `json:"is_online"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	OS           string  `json:"os"`
+	Arch         string  `json:"arch"`
+	AgentUser    string  `json:"agent_user"`
+	IsOnline     bool    `json:"is_online"`
+	LastError    *string `json:"last_error"`
+	Incompatible bool    `json:"is_agent_incompatible"`
 }
 
 type jobFormProps struct {
@@ -47,12 +49,16 @@ type runPageProps struct {
 }
 
 type runProps struct {
-	ID         string `json:"id"`
-	Status     string `json:"status"`
-	Trigger    string `json:"trigger"`
-	ExitCode   *int   `json:"exit_code"`
-	IsTerminal bool   `json:"is_terminal"`
-	Machine    struct {
+	ID             string  `json:"id"`
+	Status         string  `json:"status"`
+	Explanation    string  `json:"explanation"`
+	Trigger        string  `json:"trigger"`
+	ExitCode       *int    `json:"exit_code"`
+	IsTerminal     bool    `json:"is_terminal"`
+	LateBySeconds  *int    `json:"late_by_seconds"`
+	CoalescedCount int     `json:"coalesced_count"`
+	ScheduledFor   *string `json:"scheduled_for"`
+	Machine        struct {
 		Name string `json:"name"`
 	} `json:"machine"`
 }
@@ -228,6 +234,12 @@ type jobRequest struct {
 	Machine  string
 	Command  string
 	Schedule string
+
+	// Zero values keep the defaults the core scenarios rely on: a two minute timeout,
+	// run_late and an hour of grace. The failure and offline scenarios set them.
+	Timeout      int
+	MissedPolicy string
+	GraceSeconds int
 }
 
 func (h *harness) createJob(ctx context.Context, request jobRequest) string {
@@ -243,6 +255,21 @@ func (h *harness) createJob(ctx context.Context, request jobRequest) string {
 		h.t.Fatalf("read the Job form: %v", err)
 	}
 
+	timeout := request.Timeout
+	if timeout == 0 {
+		timeout = 120
+	}
+
+	policy := request.MissedPolicy
+	if policy == "" {
+		policy = "run_late"
+	}
+
+	grace := request.GraceSeconds
+	if grace == 0 {
+		grace = 3600
+	}
+
 	created, err := h.client.post(ctx, "/jobs", map[string]any{
 		"name":              request.Name,
 		"machine_id":        request.Machine,
@@ -252,9 +279,9 @@ func (h *harness) createJob(ctx context.Context, request jobRequest) string {
 		"enabled":           true,
 		"shell":             nil,
 		"working_directory": nil,
-		"timeout_seconds":   120,
-		"missed_policy":     "run_late",
-		"grace_seconds":     3600,
+		"timeout_seconds":   timeout,
+		"missed_policy":     policy,
+		"grace_seconds":     grace,
 	})
 	if err != nil {
 		h.t.Fatalf("create the Job %q: %v", request.Name, err)
@@ -303,7 +330,7 @@ func (h *harness) runPage(ctx context.Context, id string) runProps {
 func (h *harness) runsOf(ctx context.Context, job string) []runProps {
 	h.t.Helper()
 
-	page, err := h.client.get(ctx, "/runs?job="+job)
+	page, err := h.client.deferred(ctx, "/jobs/"+job+"/runs", "runs")
 	if err != nil {
 		h.t.Fatalf("open the Runs list: %v", err)
 	}
@@ -335,7 +362,10 @@ func (h *harness) awaitOnlineMachines(ctx context.Context, count int) map[string
 
 	online := map[string]machineProps{}
 
-	eventually(h.t, 30*time.Second, fmt.Sprintf("%d Machines coming online", count), func() (bool, string) {
+	// Repeated partitions can leave the Agent in its documented 60-second
+	// backoff. Ninety seconds covers that delay and the next request without
+	// weakening any production timing assertion.
+	eventually(h.t, 90*time.Second, fmt.Sprintf("%d Machines coming online", count), func() (bool, string) {
 		page, err := h.client.get(ctx, "/machines")
 		if err != nil {
 			return false, err.Error()

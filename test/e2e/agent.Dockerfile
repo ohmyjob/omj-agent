@@ -10,7 +10,10 @@ WORKDIR /src
 COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 go build -trimpath \
+# The e2e tag compiles in the protocol-version override, which stays inert unless
+# OMJ_TEST_PROTOCOL_VERSION is set. A release binary is built without the tag, so the
+# override cannot exist in one.
+RUN CGO_ENABLED=0 go build -trimpath -tags e2e \
     -ldflags "-s -w -X github.com/ohmyjob/omj-agent/internal/version.Version=${AGENT_VERSION}" \
     -o /out/omj-agent ./cmd/omj-agent
 

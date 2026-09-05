@@ -91,6 +91,18 @@ func (c *inertiaClient) post(ctx context.Context, path string, body any) (*page,
 	return c.send(ctx, http.MethodPost, path, body)
 }
 
+// deferred follows the same partial reload as an Inertia browser after opening a tab.
+func (c *inertiaClient) deferred(ctx context.Context, path, key string) (*page, error) {
+	initial, err := c.get(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	return c.send(ctx, http.MethodGet, path, nil, http.Header{
+		"X-Inertia-Partial-Component": []string{initial.Component},
+		"X-Inertia-Partial-Data":      []string{key},
+	})
+}
+
 // json reads a plain JSON endpoint, such as a Run's log window, which is not a page.
 func (c *inertiaClient) json(ctx context.Context, path string, into any) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
@@ -118,7 +130,7 @@ func (c *inertiaClient) json(ctx context.Context, path string, into any) error {
 	return nil
 }
 
-func (c *inertiaClient) send(ctx context.Context, method, path string, body any) (*page, error) {
+func (c *inertiaClient) send(ctx context.Context, method, path string, body any, headers ...http.Header) (*page, error) {
 	var payload io.Reader
 
 	if body != nil {
@@ -139,6 +151,12 @@ func (c *inertiaClient) send(ctx context.Context, method, path string, body any)
 	request.Header.Set("X-Inertia-Version", c.version)
 	request.Header.Set("X-Requested-With", "XMLHttpRequest")
 	request.Header.Set("Accept", "text/html, application/xhtml+xml")
+
+	for _, header := range headers {
+		for name, values := range header {
+			request.Header[name] = values
+		}
+	}
 
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")

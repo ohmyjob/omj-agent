@@ -1,6 +1,6 @@
 # 018 · End-to-end failure and offline scenarios
 
-Status: todo
+Status: in progress
 Repo: ohmyjob-agent
 Depends on: 017
 PRD: §28 (end-to-end list), §30 items 12, 14–20, §17, §19
