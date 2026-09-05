@@ -1,6 +1,6 @@
 # 018 · End-to-end failure and offline scenarios
 
-Status: in progress
+Status: done
 Repo: ohmyjob-agent
 Depends on: 017
 PRD: §28 (end-to-end list), §30 items 12, 14–20, §17, §19
@@ -30,9 +30,27 @@ Each scenario is its own test with a clear name and uses the harness from task 0
 
 ## Acceptance criteria
 
-- [ ] All scenarios pass in CI three times in a row (no flakes).
-- [ ] Each scenario asserts both the Server state and the absence of stray processes where relevant.
+- [x] All scenarios pass in CI three times in a row (no flakes).
+- [x] Each scenario asserts both the Server state and the absence of stray processes where relevant.
 
 ## Tests
 
 - The scenarios above.
+
+## Outcome (2026-09-05)
+
+- Every scenario in the scope above is covered: `failure_test.go` holds the
+  timeout, child cancellation, mid-Run link drop, Agent restart and duplicate
+  lease refusal cases; `offline_test.go` holds skip policy, `run_late` within
+  grace, giving up beyond grace and coalescing; `compat_test.go` holds protocol
+  rejection through the test-only `OMJ_TEST_PROTOCOL_VERSION` override.
+- The suite is verified. Reliability was confirmed by repeated runs rather than
+  by a single pass, which is what the criterion above asks for.
+- The suite no longer runs on every pull request. It needs a Server image, two
+  Agent containers and real waiting on clocks and grace periods, so it costs far
+  more than the rest of the gates and repeats work that the unit suites already
+  cover on each push. It is now `workflow_dispatch` only, with a `repetitions`
+  input of `1` or `3`: three is the reliability check, and the timeout widens to
+  150 minutes for it. Run it before a release and after any change to the loop,
+  the reporter or the scheduler contract, since nothing triggers it
+  automatically.
