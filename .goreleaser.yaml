@@ -66,3 +66,8 @@ release:
     name: omj-agent
   draft: false
   prerelease: auto
+  # ohmyjob.sh/install.sh serves the copy attached to the latest release, so
+  # the installer people pipe into a shell always matches the release it
+  # installs.
+  extra_files:
+    - glob: ./packaging/install.sh
