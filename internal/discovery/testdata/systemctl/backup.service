@@ -1,0 +1,3 @@
+User=deploy
+ExecStart={ path=/usr/bin/borg ; argv[]=/usr/bin/borg create ::daily /srv ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }
+ExecStart={ path=/usr/bin/borg ; argv[]=/usr/bin/borg prune --keep-daily 7 ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }

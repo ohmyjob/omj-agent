@@ -1,0 +1,2 @@
+User=
+ExecStart={ path=/usr/lib/apt/apt.systemd.daily ; argv[]=/usr/lib/apt/apt.systemd.daily update ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }

@@ -1,0 +1,3 @@
+Unit=backup.service
+TimersCalendar={ OnCalendar=Sat *-*-* 03:15:00 Europe/Lisbon ; next_elapse=Sun 2026-09-07 03:15:00 WEST }
+TimersMonotonic=

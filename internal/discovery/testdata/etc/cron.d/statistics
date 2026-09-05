@@ -1,0 +1,4 @@
+# collect statistics
+*/5 * * * * stats /usr/local/bin/collect --quiet
+0 0 * * mon-fri,sat stats /usr/local/bin/roll
+17 3 * * * stats

@@ -1,0 +1,9 @@
+Sat 2026-09-06 06:12:34 UTC  6h left      Fri 2026-09-05 06:11:03 UTC  17h ago    apt-daily.timer         apt-daily.service
+Sat 2026-09-06 00:00:00 UTC  12h left     Fri 2026-09-05 00:00:12 UTC  1 day ago  logrotate.timer         logrotate.service
+Sun 2026-09-07 03:15:00 WEST 1 day left   Fri 2026-09-05 03:15:00 WEST 1 day ago  backup.timer            backup.service
+Sat 2026-09-06 09:00:00 UTC  3h left      Fri 2026-09-05 09:00:00 UTC  4h ago     omj-report.timer        omj-report.service
+n/a                          n/a          Fri 2026-09-05 08:00:00 UTC  5h ago     broken-schedule.timer   broken-schedule.service
+Sat 2026-09-06 10:00:00 UTC  4h left      n/a                          n/a        no-command.timer        no-command.service
+Sat 2026-09-06 11:00:00 UTC  5h left      n/a                          n/a        vanished.timer          vanished.service
+a row systemd should never have printed
+7 timers listed.

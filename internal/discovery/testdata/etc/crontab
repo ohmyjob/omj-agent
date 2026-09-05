@@ -1,0 +1,12 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# m h dom mon dow user	command
+17 *	* * *	root	cd / && run-parts --report /etc/cron.hourly
+25 6	* * *	root	test -x /usr/sbin/anacron || { cd / && run-parts --report /etc/cron.daily; }
+
+CRON_TZ=Europe/Lisbon
+30 4	* * 7	backup	/usr/local/bin/weekly-backup.sh
+@daily	root	/usr/local/bin/omj-agent discover
+*/5 * * * * /usr/local/bin/no-user-in-this-line
+70 * * * * root /usr/bin/never-runs

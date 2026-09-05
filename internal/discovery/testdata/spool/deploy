@@ -1,0 +1,2 @@
+*/10 * * * * cd /srv/app && ./bin/queue-tick
+this line is not a schedule

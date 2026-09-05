@@ -1,0 +1,3 @@
+Unit=apt-daily.service
+TimersCalendar={ OnCalendar=*-*-* 06,18:00:00 ; next_elapse=Sat 2026-09-06 06:12:34 UTC }
+TimersMonotonic=

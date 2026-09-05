@@ -1,0 +1,3 @@
+Unit=no-command.service
+TimersCalendar={ OnCalendar=Mon..Fri 09:00 ; next_elapse=Sat 2026-09-06 10:00:00 UTC }
+TimersMonotonic=

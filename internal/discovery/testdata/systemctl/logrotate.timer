@@ -1,0 +1,3 @@
+Unit=logrotate.service
+TimersCalendar={ OnCalendar=*-*-* 00:00:00 ; next_elapse=Sat 2026-09-06 00:00:00 UTC }
+TimersMonotonic={ OnBootUSec=15min ; next_elapse=n/a }
