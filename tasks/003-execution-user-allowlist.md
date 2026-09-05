@@ -19,11 +19,24 @@ Server can only choose from that list.
   root unless the operator also set the existing explicit root
   acknowledgement, and an invalid entry is a startup error rather than a
   silent drop.
-- The list is reported to the Server on enroll and on every ping, so the
-  Server's picker cannot offer a user the machine does not permit.
+- The list rides in the metadata block `enroll` and `work` already share, so
+  it is set at enrollment and refreshed by the 25-second heartbeat. Not
+  `ping`: that is a GET with no body, used only by `status` and `doctor`.
+- The `ping` **response** echoes back the list the Server holds, so `doctor`
+  can report drift — "the Server has deploy, www-data" — without a second
+  write path.
+- An allowlist is only meaningful on a privileged Agent: one running as
+  `ohmyjob` can only ever be `ohmyjob`. Validation should say so rather than
+  accept a list it can never honour.
 - **The Server can never add to it.** No endpoint, no payload and no lease
   field writes this list; it moves in one direction only.
 - `omj-agent doctor` reports the list and whether each user is usable.
+
+## Upgrade order
+
+`config.Parse` rejects unknown keys, so a binary older than this task fails
+to start against a config that already has `run_as_allowed`. Upgrade the
+Agent first, then add the key, and say so in `docs/configuration.md`.
 
 ## Files
 

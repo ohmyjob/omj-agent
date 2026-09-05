@@ -12,13 +12,15 @@ already exists.
 
 ## Scope
 
-- The work response may ask for a discovery; the Agent collects one and
-  posts it to the new endpoint. Nothing is scheduled by the Agent and nothing
-  is cached beyond the request.
+- `discovery_requested` in the work response is the trigger. The Agent
+  collects one and posts it to `POST /discovery`, without holding up the loop
+  or the Runs it owns, and answers each request once.
+- A Server that does not implement discovery answers `404`; log it once and
+  stop, rather than retrying a path that will never exist.
 - Additive to protocol 1: an older Server never asks, so an upgraded Agent
   keeps working unchanged (§14.3).
-- Bounded like every other payload: a machine with thousands of crontab
-  lines truncates with a flag rather than posting without limit.
+- Bounded like every other payload: stop at 500 entries or 512 KiB encoded,
+  whichever comes first, and count the rest in `omitted_entries`.
 - The subcommand `omj-agent discover` prints what would be sent, so an
   operator can see exactly what leaves the machine before enabling anything.
 
