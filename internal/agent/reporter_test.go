@@ -2,6 +2,8 @@ package agent
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -337,7 +339,20 @@ func TestHeartbeatFailureNeverKillsTheProcess(t *testing.T) {
 
 	h.server.FailNext("heartbeat", http.StatusBadGateway, "")
 
-	wait := startReporting(t, h, h.lease(runA, "sleep 0.3"))
+	// The process ends when the test says so rather than after a fixed sleep,
+	// because a machine slow enough to finish the Run before the next
+	// heartbeat would hide the resumption this test is about.
+	gate := filepath.Join(t.TempDir(), "gate")
+	wait := startReporting(t, h, h.lease(runA, "until [ -f '"+gate+"' ]; do sleep 0.01; done"))
+
+	h.ticker.tickUntil(t, h.agent.Settings().HeartbeatInterval, func() bool {
+		return len(h.server.Heartbeats()) > 0
+	})
+
+	if err := os.WriteFile(gate, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
 	h.ticker.tickUntil(t, h.agent.Settings().HeartbeatInterval, h.finished)
 	wait()
 
@@ -348,10 +363,6 @@ func TestHeartbeatFailureNeverKillsTheProcess(t *testing.T) {
 
 	if h.logs.count("heartbeat failed") != 1 {
 		t.Fatal("the failed heartbeat was not logged once")
-	}
-
-	if len(h.server.Heartbeats()) == 0 {
-		t.Fatal("heartbeats did not resume after the failure")
 	}
 }
 
