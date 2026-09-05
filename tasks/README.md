@@ -18,24 +18,21 @@ Source of truth is the PRD (`PRD.md`, one level above both repositories during p
 
 ## Task index
 
-| #   | Task                                    | Area        |
-| --- | --------------------------------------- | ----------- |
-| 001 | Scaffold module and CI                  | Foundation  |
-| 002 | Config and paths                        | Foundation  |
-| 003 | Protocol types and fixtures             | Protocol    |
-| 004 | HTTP client                             | Protocol    |
-| 005 | System information                      | Foundation  |
-| 006 | Enroll command                          | CLI         |
-| 007 | State file                              | Reliability |
-| 008 | Runner: process execution               | Execution   |
-| 009 | Runner: timeout and cancellation        | Execution   |
-| 010 | Output chunker and buffer               | Execution   |
-| 011 | Agent loop and lease handling           | Core        |
-| 012 | Run reporter                            | Core        |
-| 013 | Shutdown and restart handling           | Reliability |
-| 014 | run, status and doctor commands         | CLI         |
-| 015 | systemd unit and installer              | Packaging   |
-| 016 | Release pipeline                        | Packaging   |
-| 017 | End-to-end harness and core scenarios   | QA          |
-| 018 | End-to-end failure and offline scenarios| QA          |
-| 019 | Documentation                           | Docs        |
+The v1 backlog (001–019) is done and was removed when this one was written;
+it is in the git history, and the numbering restarted here. A task number in
+a commit message from before that point means a v1 task, not one of these.
+
+| #   | Task                        | Area      |
+| --- | --------------------------- | --------- |
+| 001 | Discover scheduled work     | Import    |
+| 002 | Report a discovery          | Import    |
+| 003 | Execution user allowlist    | Execution |
+| 004 | Run as a permitted user     | Execution |
+
+001 and 002 are read-only by design: the Agent reports what a Machine
+already schedules and never edits it. 003 and 004 add the rule that the
+operator decides which users may run work and the Server may only choose
+from that list (PRD §21, §37).
+
+Both pairs have a Server counterpart: 002 needs Server 010, and 004 needs
+Server 012.
