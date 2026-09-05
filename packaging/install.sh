@@ -1,5 +1,5 @@
 #!/bin/sh
-# Oh My Job Agent installer. Served as https://ohmyjob.com/install.sh; the source of truth is
+# Oh My Job Agent installer. Served as https://ohmyjob.sh/install.sh; the source of truth is
 # packaging/install.sh in github.com/ohmyjob/omj-agent.
 set -eu
 
@@ -84,7 +84,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-[ "$(id -u)" -eq 0 ] || fail "run this script as root, for example: curl -fsSL https://ohmyjob.com/install.sh | sudo sh -s -- ..." 2
+[ "$(id -u)" -eq 0 ] || fail "run this script as root, for example: curl -fsSL https://ohmyjob.sh/install.sh | sudo sh -s -- ..." 2
 
 has_systemd() {
     command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]

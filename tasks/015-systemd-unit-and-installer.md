@@ -7,7 +7,7 @@ PRD: §15 (enrollment command), §16.1, §16.3 (files, user, unit, hardening), �
 
 ## Goal
 
-The unit file and the one-line installer that ohmyjob.com serves.
+The unit file and the one-line installer that ohmyjob.sh serves.
 
 ## Scope
 

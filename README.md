@@ -21,7 +21,7 @@ Create the machine in your Server first — **Machines → Add Machine** shows t
 command, with the token already filled in:
 
 ```sh
-curl -fsSL https://ohmyjob.com/install.sh | sudo sh -s -- \
+curl -fsSL https://ohmyjob.sh/install.sh | sudo sh -s -- \
   --server https://jobs.home.example --token omj_enroll_xxxxx
 ```
 
@@ -67,13 +67,13 @@ pass `--user` to `enroll`.
 Re-run the installer. It keeps the enrollment and replaces only the binary:
 
 ```sh
-curl -fsSL https://ohmyjob.com/install.sh | sudo sh -s -- --no-enroll
+curl -fsSL https://ohmyjob.sh/install.sh | sudo sh -s -- --no-enroll
 ```
 
 ### Removing
 
 ```sh
-curl -fsSL https://ohmyjob.com/install.sh | sudo sh -s -- --uninstall
+curl -fsSL https://ohmyjob.sh/install.sh | sudo sh -s -- --uninstall
 ```
 
 Add `--purge` to remove `/etc/ohmyjob` and `/var/lib/ohmyjob` as well. Remove
@@ -117,7 +117,7 @@ So keep the `ohmyjob` user's reach small, grant privileges with narrow `sudo`
 rules rather than by running as root, and read
 [docs/security.md](docs/security.md) before putting this on a network.
 
-Vulnerabilities go to `security@ohmyjob.com` — see [SECURITY.md](SECURITY.md).
+Vulnerabilities go to `security@ohmyjob.sh` — see [SECURITY.md](SECURITY.md).
 
 ## Development
 

@@ -72,7 +72,7 @@ The message names both versions and, when the Server sent one, the minimum
 Agent version it wants. Install that version:
 
 ```sh
-curl -fsSL https://ohmyjob.com/install.sh | sudo sh -s -- --no-enroll --version 0.4.0
+curl -fsSL https://ohmyjob.sh/install.sh | sudo sh -s -- --no-enroll --version 0.4.0
 sudo systemctl restart omj-agent
 omj-agent doctor
 ```
@@ -258,5 +258,5 @@ Credentials never appear in the log at any level; if you see
 
 Still stuck: open an issue with the output of `omj-agent doctor` and
 `omj-agent version`. Neither prints anything sensitive. For anything that looks
-like a vulnerability, email `security@ohmyjob.com` instead — see
+like a vulnerability, email `security@ohmyjob.sh` instead — see
 [SECURITY.md](../SECURITY.md).

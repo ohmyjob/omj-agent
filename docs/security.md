@@ -194,5 +194,5 @@ administrator accounts to the few people who already have root there anyway.
 
 ## Reporting a vulnerability
 
-Email `security@ohmyjob.com`. Please do not open a public issue. See
+Email `security@ohmyjob.sh`. Please do not open a public issue. See
 [SECURITY.md](../SECURITY.md) for what to include and what to expect.

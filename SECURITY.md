@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email `security@ohmyjob.com`. Please do not open a public issue, and please do
+Email `security@ohmyjob.sh`. Please do not open a public issue, and please do
 not post it anywhere public before we have had a chance to fix it.
 
 Helpful to include:
@@ -31,7 +31,7 @@ something you found on an old one, in case it is already fixed.
 ## Scope
 
 In scope: the Agent, the protocol between it and the Server, the installer at
-`packaging/install.sh` (served as `https://ohmyjob.com/install.sh`), the
+`packaging/install.sh` (served as `https://ohmyjob.sh/install.sh`), the
 systemd unit and the published release archives.
 
 The Server, its container image and its web interface belong to

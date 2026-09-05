@@ -1,6 +1,6 @@
 [Unit]
 Description=Oh My Job Agent
-Documentation=https://ohmyjob.com/docs
+Documentation=https://ohmyjob.sh/docs
 After=network-online.target
 Wants=network-online.target
 

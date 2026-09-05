@@ -5,7 +5,7 @@ that matches your platform, verifies its checksum, creates the `ohmyjob` service
 installs the systemd unit and enrolls the machine:
 
 ```sh
-curl -fsSL https://ohmyjob.com/install.sh | sudo sh -s -- --server https://jobs.example --token omj_enroll_...
+curl -fsSL https://ohmyjob.sh/install.sh | sudo sh -s -- --server https://jobs.example --token omj_enroll_...
 ```
 
 `install.sh` in this directory is that script. It is safe to re-run: an existing

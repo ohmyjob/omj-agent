@@ -5,7 +5,7 @@ workflow in `.github/workflows/release.yml` runs the quality gates, builds
 static binaries for `linux/amd64` and `linux/arm64`, and attaches the
 archives and the `SHA256SUMS` file to that release. Pushing a tag on its own
 builds nothing. The installer at `packaging/install.sh` (served from
-ohmyjob.com) downloads the latest published release and verifies it against
+ohmyjob.sh) downloads the latest published release and verifies it against
 `SHA256SUMS`.
 
 The release notes are the ones you write: GoReleaser keeps the body it finds
