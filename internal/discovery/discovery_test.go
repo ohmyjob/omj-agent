@@ -298,9 +298,18 @@ func entriesWithoutRaw(t *testing.T, entries []Entry, files ...string) []Entry {
 func fingerprint(t *testing.T, root string) string {
 	t.Helper()
 
+	// Reading through os.Root keeps every path resolved inside the tree being
+	// fingerprinted, so a symlink cannot walk the check out of it.
+	dir, err := os.OpenRoot(root)
+	if err != nil {
+		t.Fatalf("open %s: %v", root, err)
+	}
+
+	defer func() { _ = dir.Close() }()
+
 	sum := sha256.New()
 
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	err = fs.WalkDir(dir.FS(), ".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -316,7 +325,7 @@ func fingerprint(t *testing.T, root string) string {
 			return nil
 		}
 
-		data, err := os.ReadFile(path)
+		data, err := fs.ReadFile(dir.FS(), path)
 		if err != nil {
 			return err
 		}

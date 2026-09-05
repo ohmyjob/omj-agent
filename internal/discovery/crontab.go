@@ -213,9 +213,13 @@ func environmentAssignment(text string) (name, value string, ok bool) {
 
 	for i, r := range name {
 		letter := r == '_' || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z')
-		if !letter && !(i > 0 && r >= '0' && r <= '9') {
-			return "", "", false
+		digit := i > 0 && r >= '0' && r <= '9'
+
+		if letter || digit {
+			continue
 		}
+
+		return "", "", false
 	}
 
 	return name, unquoteCronValue(strings.TrimSpace(value)), true
