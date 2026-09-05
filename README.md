@@ -44,7 +44,7 @@ Download the archive and the checksums from
 
 ```sh
 sha256sum -c SHA256SUMS --ignore-missing
-tar -xzf omj-agent_0.1.0_linux_amd64.tar.gz
+tar -xzf omj-agent_<version>_linux_amd64.tar.gz
 
 sudo install -m 0755 omj-agent /usr/local/bin/omj-agent
 sudo useradd --system --user-group --home-dir /var/lib/ohmyjob \
