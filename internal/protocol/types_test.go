@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -153,6 +154,46 @@ func TestUnknownFieldsAreTolerated(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestRunAsAllowedIsRequestOnly holds the direction of the execution-user
+// allowlist in the wire format itself (PRD §21): it is on what the Agent
+// sends and on nothing it receives, so no answer can widen it.
+func TestRunAsAllowedIsRequestOnly(t *testing.T) {
+	for _, request := range []any{EnrollRequest{}, WorkRequest{}} {
+		if !carries(reflect.TypeOf(request), "run_as_allowed") {
+			t.Errorf("%T does not report run_as_allowed", request)
+		}
+	}
+
+	responses := []any{EnrollResponse{}, PingResponse{}, WorkResponse{}, StartResponse{}, OutputResponse{}, HeartbeatResponse{}, FinishResponse{}, ErrorResponse{}}
+
+	for _, response := range responses {
+		if carries(reflect.TypeOf(response), "run_as_allowed") {
+			t.Errorf("%T carries run_as_allowed; the server must not be able to set the allowlist", response)
+		}
+	}
+}
+
+func carries(t reflect.Type, tag string) bool {
+	switch t.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
+		return carries(t.Elem(), tag)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			field := t.Field(i)
+
+			if name, _, _ := strings.Cut(field.Tag.Get("json"), ","); name == tag {
+				return true
+			}
+
+			if field.Type != t && carries(field.Type, tag) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func TestWorkResponseDecodesNullableLeaseFields(t *testing.T) {

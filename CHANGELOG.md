@@ -10,7 +10,21 @@ here; see [docs/releasing.md](docs/releasing.md).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **An execution-user allowlist.** `run_as_allowed` in `agent.conf` names the
+  local users this machine is willing to run work as, and the Agent reports the
+  list at enrollment and on every poll so the Server can only ever choose from
+  it. The list moves in one direction: no response field, endpoint or lease
+  writes it. Left out, work runs as the Agent's own user and nothing else,
+  exactly as before. Every entry is checked at startup — the user must exist,
+  and `root`, or any other user, is refused unless the Agent runs as root and
+  could actually become it — so a list this machine cannot honour stops the
+  Agent with the reason instead of being dropped quietly. `doctor` reports the
+  list and whether each user is usable.
+
+  `agent.conf` rejects unknown keys, so **upgrade the Agent before adding the
+  key**: an older binary will not start against a file that has it.
 
 ## [0.1.1] - 2026-09-05
 

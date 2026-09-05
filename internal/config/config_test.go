@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -35,6 +36,9 @@ func TestValidate(t *testing.T) {
 		{name: "too much concurrency", mutate: func(c *Config) { c.MaxConcurrentRuns = 65 }, wantErr: "max_concurrent_runs must be between 1 and 64"},
 		{name: "no timeout", mutate: func(c *Config) { c.MaxTimeoutSeconds = 0 }, wantErr: "max_timeout_seconds must be at least 1"},
 		{name: "no output", mutate: func(c *Config) { c.MaxOutputBytes = 0 }, wantErr: "max_output_bytes must be at least 1"},
+		{name: "an allowlist", mutate: func(c *Config) { c.RunAsAllowed = []string{"deploy", "www-data"} }},
+		{name: "an empty allowlist entry", mutate: func(c *Config) { c.RunAsAllowed = []string{"deploy", ""} }, wantErr: "run_as_allowed has an empty entry"},
+		{name: "a repeated allowlist entry", mutate: func(c *Config) { c.RunAsAllowed = []string{"deploy", "deploy"} }, wantErr: `run_as_allowed lists "deploy" twice`},
 	}
 
 	for _, tt := range tests {
@@ -64,6 +68,7 @@ func TestSaveAndLoad(t *testing.T) {
 	cfg := validConfig()
 	cfg.InsecureHTTP = true
 	cfg.ServerURL = "http://jobs.lan:8000"
+	cfg.RunAsAllowed = []string{"deploy", "www-data"}
 
 	if err := Save(paths, cfg); err != nil {
 		t.Fatalf("Save() error = %v", err)
@@ -83,7 +88,7 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if got != cfg {
+	if !reflect.DeepEqual(got, cfg) {
 		t.Errorf("Load() = %+v, want %+v", got, cfg)
 	}
 

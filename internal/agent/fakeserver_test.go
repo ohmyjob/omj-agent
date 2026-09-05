@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -40,6 +41,7 @@ type fakeServer struct {
 	cancelWanted  map[string]bool
 	truncated     map[string]bool
 	holdFinish    chan struct{}
+	injected      map[string]any
 }
 
 type failure struct {
@@ -141,6 +143,16 @@ func (f *fakeServer) HoldFinish() (release func()) {
 	f.holdFinish = hold
 
 	return func() { close(hold) }
+}
+
+// Inject adds fields to the work response that the protocol does not define,
+// so a test can watch what the Agent does with a Server that sends more than
+// the contract allows.
+func (f *fakeServer) Inject(fields map[string]any) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.injected = fields
 }
 
 func (f *fakeServer) SetConfig(config protocol.AgentConfig) {
@@ -316,9 +328,30 @@ func (f *fakeServer) work(w http.ResponseWriter, r *http.Request) {
 	}
 	f.cancels = nil
 	config := f.config
+	injected := f.injected
 	f.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, protocol.WorkResponse{Runs: runs, CancelRunIDs: cancels, Config: config})
+	writeJSON(w, http.StatusOK, merge(protocol.WorkResponse{Runs: runs, CancelRunIDs: cancels, Config: config}, injected))
+}
+
+func merge(response protocol.WorkResponse, extra map[string]any) any {
+	if len(extra) == 0 {
+		return response
+	}
+
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		return response
+	}
+
+	document := map[string]any{}
+	if err := json.Unmarshal(encoded, &document); err != nil {
+		return response
+	}
+
+	maps.Copy(document, extra)
+
+	return document
 }
 
 func (f *fakeServer) start(w http.ResponseWriter, r *http.Request) {

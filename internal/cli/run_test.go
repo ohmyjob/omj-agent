@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -144,6 +145,76 @@ func TestRunWiresTheAgent(t *testing.T) {
 
 	if strings.Contains(stdout.String()+stderr.String(), testCredential) {
 		t.Error("the credential was printed")
+	}
+}
+
+func TestRunResolvesTheExecutionUserAllowlist(t *testing.T) {
+	tests := []struct {
+		name       string
+		allowed    []string
+		want       []string
+		wantCode   int
+		wantStderr string
+	}{
+		{name: "no allowlist is the agent's own user", want: []string{"ohmyjob"}, wantCode: ExitOK},
+		{name: "an allowlist naming the agent's own user", allowed: []string{"ohmyjob"}, want: []string{"ohmyjob"}, wantCode: ExitOK},
+		{
+			name:       "a user who does not exist stops the agent",
+			allowed:    []string{"backup"},
+			wantCode:   ExitError,
+			wantStderr: `run_as_allowed lists "backup", which is not a user on this machine`,
+		},
+		{
+			name:       "a user this agent cannot become stops the agent",
+			allowed:    []string{"deploy"},
+			wantCode:   ExitError,
+			wantStderr: "can only run work as itself",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			paths := testPaths(t)
+			cfg := enrolledConfig()
+			cfg.RunAsAllowed = tt.allowed
+			writeConfig(t, paths, cfg)
+			writeCredential(t, paths)
+
+			stub := &stubDaemon{}
+			var (
+				captured       agent.Options
+				stdout, stderr bytes.Buffer
+			)
+
+			command := newRunCommand(paths, stub, &captured)
+			command.lookupUser = func(name string) (int, error) {
+				if name != "deploy" {
+					return 0, errors.New("unknown user " + name)
+				}
+
+				return 1001, nil
+			}
+
+			if got := command.run(nil, &stdout, &stderr); got != tt.wantCode {
+				t.Fatalf("run() = %d, want %d (stderr %q)", got, tt.wantCode, stderr.String())
+			}
+
+			if tt.wantCode != ExitOK {
+				if !strings.Contains(stderr.String(), tt.wantStderr) || !strings.Contains(stderr.String(), paths.ConfigFile) {
+					t.Errorf("stderr = %q, want it to name %s and contain %q", stderr.String(), paths.ConfigFile, tt.wantStderr)
+				}
+
+				if stub.runs != 0 {
+					t.Error("the agent ran despite an allowlist it cannot honour")
+				}
+
+				return
+			}
+
+			if !reflect.DeepEqual(captured.RunAsAllowed, tt.want) {
+				t.Errorf("RunAsAllowed = %#v, want %#v", captured.RunAsAllowed, tt.want)
+			}
+		})
 	}
 }
 

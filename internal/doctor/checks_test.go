@@ -123,6 +123,27 @@ func healthyHost(t *testing.T) Host {
 	}
 }
 
+// allow writes an execution-user allowlist and answers lookups from a small
+// local user database, so the check never depends on who is running the tests.
+func allow(t *testing.T, host *Host, users ...string) {
+	t.Helper()
+
+	cfg := enrolledConfig()
+	cfg.RunAsAllowed = users
+	writeEnrollment(t, host.Paths, cfg)
+
+	known := map[string]int{"root": 0, "ohmyjob": 998, "deploy": 1001, "www-data": 33}
+
+	host.LookupUser = func(name string) (int, error) {
+		uid, ok := known[name]
+		if !ok {
+			return 0, errors.New("unknown user " + name)
+		}
+
+		return uid, nil
+	}
+}
+
 func find(t *testing.T, report Report, name string) Check {
 	t.Helper()
 
@@ -144,7 +165,7 @@ func TestRunOnAHealthyHost(t *testing.T) {
 		t.Fatalf("Failed() = true for %+v", report.Checks)
 	}
 
-	wantNames := []string{"configuration", "credential", "state directory", "server", "protocol", "clock", "service user", "service", "hardening", "privileges"}
+	wantNames := []string{"configuration", "credential", "state directory", "server", "protocol", "clock", "service user", "service", "hardening", "privileges", "execution users"}
 
 	for i, check := range report.Checks {
 		if check.Name != wantNames[i] {
@@ -399,6 +420,40 @@ func TestChecks(t *testing.T) {
 			check:      "hardening",
 			wantStatus: Pass,
 			wantDetail: "active: PrivateTmp, ProtectSystem=full, ProtectHome=read-only",
+		},
+		{
+			name: "an allowlist a root agent can honour",
+			setup: func(t *testing.T, host *Host) {
+				host.UID, host.Username = 0, "root"
+				allow(t, host, "deploy", "www-data")
+			},
+			check:      "execution users",
+			wantStatus: Pass,
+			wantDetail: "may run work as root (uid 0), deploy (uid 1001), www-data (uid 33)",
+		},
+		{
+			name: "an allowlist naming a user who does not exist",
+			setup: func(t *testing.T, host *Host) {
+				host.UID, host.Username = 0, "root"
+				allow(t, host, "backup")
+			},
+			check:      "execution users",
+			wantStatus: Fail,
+			wantDetail: `may run work as root (uid 0); run_as_allowed lists "backup", which is not a user on this machine`,
+		},
+		{
+			name:       "an allowlist an unprivileged agent cannot honour",
+			setup:      func(t *testing.T, host *Host) { allow(t, host, "deploy") },
+			check:      "execution users",
+			wantStatus: Fail,
+			wantDetail: "this agent runs as ohmyjob (uid 998) and can only run work as itself",
+		},
+		{
+			name:       "the allowlist is not checked while the configuration is broken",
+			setup:      func(t *testing.T, host *Host) { remove(t, host.Paths.ConfigFile) },
+			check:      "execution users",
+			wantStatus: Warn,
+			wantDetail: "not checked; fix the configuration first",
 		},
 	}
 

@@ -149,7 +149,12 @@ func Enroll(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, &Error{Reason: ReasonUnknown, Message: "collect machine information: " + err.Error(), Err: err}
 	}
 
-	response, err := api.Enroll(ctx, info.EnrollRequest(opts.Token, opts.Name, opts.InsecureHTTP))
+	runAs, err := allowedUsers(cfg, info, opts.System)
+	if err != nil {
+		return Result{}, err
+	}
+
+	response, err := api.Enroll(ctx, info.EnrollRequest(opts.Token, opts.Name, opts.InsecureHTTP, runAs))
 	if err != nil {
 		return Result{}, classifyServer(opts.ServerURL, err)
 	}
@@ -301,6 +306,29 @@ func existingConfig(opts Options) (config.Config, error) {
 		Message: fmt.Sprintf("%s could not be read (%v); fix it or run enroll again with --force to replace it", opts.Paths.ConfigFile, err),
 		Err:     err,
 	}
+}
+
+// allowedUsers reports the execution-user allowlist the way the daemon will,
+// and refuses one this machine could not honour rather than promising the
+// Server a user it will never run work as (PRD §21). The Server has no say in
+// it: the list is read from agent.conf and never from a response.
+func allowedUsers(cfg config.Config, info sysinfo.Info, sys System) ([]string, error) {
+	host := config.RunAsHost{UID: info.AgentUID, Username: info.AgentUser}
+
+	if sys.LookupUser != nil {
+		host.Lookup = func(name string) (int, error) {
+			uid, _, err := sys.LookupUser(name)
+
+			return uid, err
+		}
+	}
+
+	runAs := config.ResolveRunAs(cfg, host)
+	if err := runAs.Err(); err != nil {
+		return nil, &Error{Reason: ReasonInvalidInput, Message: err.Error(), Err: err}
+	}
+
+	return runAs.Names(), nil
 }
 
 func ensureWritable(dir string) error {

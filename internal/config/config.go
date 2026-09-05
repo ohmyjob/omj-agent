@@ -31,6 +31,7 @@ type Config struct {
 	MaxConcurrentRuns int
 	MaxTimeoutSeconds int
 	MaxOutputBytes    int64
+	RunAsAllowed      []string
 }
 
 const (
@@ -91,6 +92,27 @@ func (c Config) Validate() error {
 		return fmt.Errorf("max_output_bytes must be at least 1, got %d", c.MaxOutputBytes)
 	}
 
+	return c.validateRunAsAllowed()
+}
+
+// validateRunAsAllowed covers what the file alone can be wrong about. Whether
+// a user exists, and whether this Agent could ever become it, needs the
+// machine and is ResolveRunAs.
+func (c Config) validateRunAsAllowed() error {
+	seen := make(map[string]bool, len(c.RunAsAllowed))
+
+	for _, name := range c.RunAsAllowed {
+		if name == "" {
+			return errors.New("run_as_allowed has an empty entry; separate the users with a single comma")
+		}
+
+		if seen[name] {
+			return fmt.Errorf("run_as_allowed lists %q twice", name)
+		}
+
+		seen[name] = true
+	}
+
 	return nil
 }
 
@@ -144,6 +166,12 @@ func (c Config) String() string {
 	fmt.Fprintf(&b, "max_concurrent_runs = %d\n", c.MaxConcurrentRuns)
 	fmt.Fprintf(&b, "max_timeout_seconds = %d\n", c.MaxTimeoutSeconds)
 	fmt.Fprintf(&b, "max_output_bytes = %d\n", c.MaxOutputBytes)
+
+	// An absent key means the agent's own user and nothing else, so a machine
+	// without an allowlist keeps a file an older agent still reads.
+	if len(c.RunAsAllowed) > 0 {
+		fmt.Fprintf(&b, "run_as_allowed = %s\n", strings.Join(c.RunAsAllowed, ", "))
+	}
 
 	return b.String()
 }

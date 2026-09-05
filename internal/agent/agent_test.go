@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -191,6 +192,7 @@ type harnessOptions struct {
 	stopAfter     int
 	batchChunks   int
 	realResender  bool
+	runAsAllowed  []string
 	stopBudget    time.Duration
 	before        func(h *harness)
 }
@@ -254,7 +256,9 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 	}
 
 	h.agent, err = New(Options{
-		Config:     cfg,
+		Config:       cfg,
+		RunAsAllowed: opts.runAsAllowed,
+
 		Client:     c,
 		Info:       sysinfo.Info{Hostname: "nas01", OS: "linux", Arch: "arm64", ReportedIPs: []string{"192.168.1.20"}, AgentUser: "ohmyjob", AgentUID: 1000},
 		State:      store,
@@ -580,6 +584,65 @@ func TestSlotsAndActiveRunsAreReported(t *testing.T) {
 
 	if requests[0].WaitSeconds != 25 || requests[0].Hostname != "nas01" || requests[0].ReportedIPs[0] != "192.168.1.20" {
 		t.Fatalf("request metadata = %+v", requests[0])
+	}
+}
+
+func TestTheExecutionUserAllowlistIsReported(t *testing.T) {
+	tests := []struct {
+		name    string
+		allowed []string
+		want    []string
+		body    string
+	}{
+		{name: "an allowlist rides on every poll", allowed: []string{"ohmyjob", "deploy"}, want: []string{"ohmyjob", "deploy"}, body: `"run_as_allowed":["ohmyjob","deploy"]`},
+		{name: "no allowlist leaves the field out", want: nil, body: `"reported_ips":["192.168.1.20"]}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: tt.allowed})
+
+			h.run(t)
+
+			for i, request := range h.server.WorkRequests() {
+				if !reflect.DeepEqual(request.RunAsAllowed, tt.want) {
+					t.Errorf("request %d run_as_allowed = %#v, want %#v", i, request.RunAsAllowed, tt.want)
+				}
+			}
+
+			if body := h.server.WorkBodies()[0]; !strings.Contains(body, tt.body) {
+				t.Errorf("body = %s, want it to contain %s", body, tt.body)
+			}
+
+			if tt.allowed == nil && strings.Contains(h.server.WorkBodies()[0], "run_as_allowed") {
+				t.Errorf("body = %s, want no run_as_allowed at all", h.server.WorkBodies()[0])
+			}
+		})
+	}
+}
+
+// TestNoServerAnswerChangesTheAllowlist covers the rule the whole feature
+// rests on (PRD §21): the list is the operator's, so a Server that answers
+// with one of its own changes nothing.
+func TestNoServerAnswerChangesTheAllowlist(t *testing.T) {
+	h := newHarness(t, harnessOptions{stopAfter: 3, runAsAllowed: []string{"ohmyjob"}})
+
+	h.server.Inject(map[string]any{
+		"run_as_allowed": []string{"root"},
+		"config":         map[string]any{"poll_wait_seconds": 25, "run_as_allowed": []string{"root"}},
+	})
+
+	h.run(t)
+
+	requests := h.server.WorkRequests()
+	if len(requests) < 2 {
+		t.Fatalf("work requests = %d, want at least 2", len(requests))
+	}
+
+	for i, request := range requests {
+		if !reflect.DeepEqual(request.RunAsAllowed, []string{"ohmyjob"}) {
+			t.Errorf("request %d run_as_allowed = %#v, want [ohmyjob]", i, request.RunAsAllowed)
+		}
 	}
 }
 

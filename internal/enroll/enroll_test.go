@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -146,6 +147,13 @@ func testInfo() sysinfo.Info {
 	}
 }
 
+func rootInfo() sysinfo.Info {
+	info := testInfo()
+	info.AgentUser, info.AgentUID = "root", 0
+
+	return info
+}
+
 func testOptions(t *testing.T, serverURL string, sys *fakeSystem, log io.Writer) Options {
 	t.Helper()
 
@@ -195,6 +203,70 @@ func assertMode(t *testing.T, path string, want os.FileMode) {
 
 	if got := info.Mode().Perm(); got != want {
 		t.Errorf("%s has mode %04o, want %04o", path, got, want)
+	}
+}
+
+// TestEnrollReportsTheExecutionUserAllowlist covers the first half of the
+// list's one-way trip: what agent.conf allows is what the Server is told, and
+// a list this machine could not honour stops enrollment before the token is
+// spent.
+func TestEnrollReportsTheExecutionUserAllowlist(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing string
+		info     sysinfo.Info
+		want     []string
+		wantErr  string
+	}{
+		{name: "no allowlist is the agent's own user", info: testInfo(), want: []string{"ohmyjob"}},
+		{name: "an allowlist a root agent can honour", existing: "run_as_allowed = deploy\n", info: rootInfo(), want: []string{"root", "deploy"}},
+		{name: "a user who does not exist", existing: "run_as_allowed = backup\n", info: rootInfo(), wantErr: "not a user on this machine"},
+		{name: "a user an unprivileged agent cannot become", existing: "run_as_allowed = deploy\n", info: testInfo(), wantErr: "can only run work as itself"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, rec := fakeServer(t, http.StatusCreated, successBody(), nil)
+			sys := &fakeSystem{users: map[string][2]int{DefaultOwner: {998, 998}, "root": {0, 0}, "deploy": {1001, 1001}}}
+			opts := testOptions(t, server.URL, sys, nil)
+			opts.Collect = func(context.Context) (sysinfo.Info, error) { return tt.info, nil }
+
+			if tt.existing != "" {
+				if err := os.MkdirAll(opts.Paths.ConfigDir, 0o750); err != nil {
+					t.Fatal(err)
+				}
+
+				if err := os.WriteFile(opts.Paths.ConfigFile, []byte(tt.existing), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			_, err := Enroll(context.Background(), opts)
+
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("Enroll() error = %v, want it to contain %q", err, tt.wantErr)
+				}
+
+				if reasonOf(t, err) != ReasonInvalidInput {
+					t.Errorf("reason = %v, want ReasonInvalidInput", reasonOf(t, err))
+				}
+
+				if rec.Hits() != 0 {
+					t.Errorf("server hits = %d, want the token left unspent", rec.Hits())
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Enroll() error: %v", err)
+			}
+
+			if !reflect.DeepEqual(rec.body.RunAsAllowed, tt.want) {
+				t.Errorf("run_as_allowed = %#v, want %#v", rec.body.RunAsAllowed, tt.want)
+			}
+		})
 	}
 }
 

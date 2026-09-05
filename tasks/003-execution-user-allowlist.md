@@ -1,6 +1,6 @@
 # 003 · Execution user allowlist
 
-Status: todo
+Status: done
 Repo: ohmyjob-agent
 Depends on: —
 PRD: §21, §33, §37 (the ownership rule)
@@ -45,10 +45,10 @@ Agent first, then add the key, and say so in `docs/configuration.md`.
 
 ## Acceptance criteria
 
-- [ ] With no configuration, behaviour is exactly as it is today.
-- [ ] A list containing an unknown user fails startup with a clear message.
-- [ ] The list reaches the Server on enroll and on ping.
-- [ ] No code path lets a Server response modify the list.
+- [x] With no configuration, behaviour is exactly as it is today.
+- [x] A list containing an unknown user fails startup with a clear message.
+- [x] The list reaches the Server on enroll and on work.
+- [x] No code path lets a Server response modify the list.
 
 ## Tests
 

@@ -146,6 +146,7 @@ PASS  service user     the service runs as ohmyjob, like doctor
 PASS  service          omj-agent is enabled and active
 PASS  hardening        no optional hardening directives are active
 PASS  privileges       running as ohmyjob (uid 987)
+PASS  execution users  may run work as ohmyjob (uid 987) only; run_as_allowed is not set
 ```
 
 | Check             | Fails when                                                        |
@@ -157,6 +158,7 @@ PASS  privileges       running as ohmyjob (uid 987)
 | `protocol`        | the Server does not accept this Agent's protocol version          |
 | `clock`           | the two clocks disagree by more than 30 seconds                   |
 | `service`         | the unit is not both enabled and active                           |
+| `execution users` | `run_as_allowed` names a user this machine does not have, or one this Agent could never become |
 
 Three checks only ever warn. `service user` warns when the service runs as a
 different user from the one running `doctor`, because the file checks above it

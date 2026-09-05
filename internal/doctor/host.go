@@ -35,6 +35,7 @@ type Host struct {
 	LoadConfig     func(config.Paths) (config.Config, error)
 	LoadCredential func(config.Paths) (config.Credential, error)
 	LoadState      func(path string) (*state.Store, error)
+	LookupUser     func(name string) (uid int, err error)
 	Dial           func(config.Config, config.Credential) (Pinger, error)
 	Systemctl      Systemctl
 }
@@ -64,6 +65,10 @@ func (h Host) WithDefaults() Host {
 
 	if h.LoadState == nil {
 		h.LoadState = state.Load
+	}
+
+	if h.LookupUser == nil {
+		h.LookupUser = config.LookupUser
 	}
 
 	if h.Dial == nil {

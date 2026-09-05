@@ -14,6 +14,11 @@ type MachineMetadata struct {
 	AgentUID      int      `json:"agent_uid"`
 	InsecureHTTP  bool     `json:"insecure_http"`
 	ReportedIPs   []string `json:"reported_ips"`
+
+	// RunAsAllowed is the operator's execution-user allowlist. It is reported
+	// and never received: no response type carries it, so the Server chooses
+	// from this list and can never add to it (PRD §21).
+	RunAsAllowed []string `json:"run_as_allowed,omitempty"`
 }
 
 type EnrollRequest struct {

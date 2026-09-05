@@ -54,6 +54,7 @@ max_output_bytes = 104857600
 | `max_concurrent_runs` | `4`         | Runs this machine executes at once, 1 to 64.         |
 | `max_timeout_seconds` | `259200`    | Local ceiling on a Job's timeout. Minimum 1.         |
 | `max_output_bytes`    | `104857600` | Local ceiling on output kept per Run. Minimum 1.     |
+| `run_as_allowed`      | —           | Local users the Server may run work as, comma separated. |
 
 ### `server_url`
 
@@ -99,6 +100,37 @@ addressed to another machine.
 Lower them on a machine that matters. The defaults — three days and 100 MiB —
 are generous on purpose, so that they never surprise anyone who has not thought
 about them; they are not a recommendation.
+
+### `run_as_allowed`
+
+Which local users this machine will run work as. Left out, work runs as the
+Agent's own user and nothing else, which is what every machine does today:
+
+```ini
+run_as_allowed = deploy, www-data
+```
+
+The list belongs to this machine and moves in one direction. The Agent reports
+it to the Server at enrollment and on every poll, so the Server can only ever
+choose from what this file allows. Nothing the Server sends back can add to it:
+no response field, no endpoint and no lease writes this list. The only way to
+allow another user is to edit this file and restart the Agent.
+
+Every entry is checked when the Agent starts, and a bad one stops it with the
+reason rather than being dropped quietly:
+
+- the user must exist on this machine;
+- `root` is refused unless the Agent itself runs as root;
+- any other user is refused unless the Agent runs as root, because an
+  unprivileged Agent can only ever be itself. An `ohmyjob` Agent that promised
+  the Server it could run work as `deploy` would be lying.
+
+`omj-agent doctor` reports the whole list and whether each user is usable, so
+you can check it without restarting anything.
+
+**Upgrade the Agent before adding this key.** Unknown keys are rejected, so an
+Agent older than this key will not start against a file that has it. Upgrade
+first, then edit, then restart.
 
 ### `log_level`
 

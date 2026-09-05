@@ -57,7 +57,13 @@ type Resender interface {
 }
 
 type Options struct {
-	Config   config.Config
+	Config config.Config
+
+	// RunAsAllowed is the validated execution-user allowlist from agent.conf.
+	// It is read at New and never again, so nothing the Server answers can
+	// change what the Agent reports or will run work as (PRD §21).
+	RunAsAllowed []string
+
 	Client   *client.Client
 	Info     sysinfo.Info
 	State    *state.Store
@@ -79,7 +85,9 @@ type Options struct {
 }
 
 type Agent struct {
-	cfg      config.Config
+	cfg          config.Config
+	runAsAllowed []string
+
 	client   *client.Client
 	info     sysinfo.Info
 	state    *state.Store
@@ -116,7 +124,9 @@ func New(opts Options) (*Agent, error) {
 	}
 
 	a := &Agent{
-		cfg:      opts.Config,
+		cfg:          opts.Config,
+		runAsAllowed: opts.RunAsAllowed,
+
 		client:   opts.Client,
 		info:     opts.Info,
 		state:    opts.State,
@@ -263,7 +273,7 @@ func (a *Agent) workRequest() protocol.WorkRequest {
 		WaitSeconds:     int(a.Settings().PollWait / time.Second),
 		Slots:           min(max(free, 0), MaxSlots),
 		ActiveRuns:      a.registry.active(),
-		MachineMetadata: a.info.WorkMetadata(a.cfg.InsecureHTTP),
+		MachineMetadata: a.info.WorkMetadata(a.cfg.InsecureHTTP, a.runAsAllowed),
 	}
 }
 
@@ -298,6 +308,9 @@ func (a *Agent) delayAfter(err error) time.Duration {
 	}
 }
 
+// apply takes the intervals the Server asks for. It reaches settings and
+// nothing else: the execution-user allowlist is not part of AgentConfig and
+// has no setter here or anywhere.
 func (a *Agent) apply(received protocol.AgentConfig) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

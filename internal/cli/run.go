@@ -33,6 +33,7 @@ type runCommand struct {
 	loadCredential func(config.Paths) (config.Credential, error)
 	collect        func(context.Context) (sysinfo.Info, error)
 	loadState      func(path string) (*state.Store, error)
+	lookupUser     func(name string) (uid int, err error)
 	newAgent       func(agent.Options) (daemon, error)
 }
 
@@ -43,6 +44,7 @@ func runRun(args []string, stdout, stderr io.Writer) int {
 		loadCredential: config.LoadCredential,
 		collect:        sysinfo.Collect,
 		loadState:      state.Load,
+		lookupUser:     config.LookupUser,
 		newAgent:       newDaemon,
 	}.run(args, stdout, stderr)
 }
@@ -138,8 +140,17 @@ func (c runCommand) build(ctx context.Context, cfg config.Config, logger *slog.L
 		return nil, err
 	}
 
+	// An allowlist this agent could not honour is refused here rather than
+	// reported to the Server as if it were true.
+	runAs := config.ResolveRunAs(cfg, config.RunAsHost{UID: info.AgentUID, Username: info.AgentUser, Lookup: c.lookupUser})
+	if err := runAs.Err(); err != nil {
+		return nil, fmt.Errorf("%s: %w", c.paths.ConfigFile, err)
+	}
+
 	return c.newAgent(agent.Options{
-		Config: cfg,
+		Config:       cfg,
+		RunAsAllowed: runAs.Names(),
+
 		Client: apiClient,
 		Info:   info,
 		State:  store,

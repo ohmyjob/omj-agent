@@ -62,6 +62,8 @@ func (c *Config) set(key, value string) error {
 		c.MaxTimeoutSeconds, err = strconv.Atoi(value)
 	case "max_output_bytes":
 		c.MaxOutputBytes, err = strconv.ParseInt(value, 10, 64)
+	case "run_as_allowed":
+		c.RunAsAllowed = splitList(value)
 	default:
 		return fmt.Errorf("unknown key %q", key)
 	}
@@ -71,6 +73,21 @@ func (c *Config) set(key, value string) error {
 	}
 
 	return nil
+}
+
+// splitList keeps empty entries so that a stray comma is a validation error
+// rather than a silently shortened allowlist.
+func splitList(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	parts := strings.Split(value, ",")
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+
+	return parts
 }
 
 func unquote(value string) string {

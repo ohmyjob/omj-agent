@@ -66,6 +66,11 @@ func Run(ctx context.Context, host Host) Report {
 		probe = h.Probe(ctx, cfg, credential)
 	}
 
+	runAsCheck := Check{"execution users", Warn, "not checked; fix the configuration first"}
+	if configCheck.Status != Fail {
+		runAsCheck = h.checkRunAs(cfg)
+	}
+
 	return Report{Checks: []Check{
 		configCheck,
 		credentialCheck,
@@ -77,6 +82,7 @@ func Run(ctx context.Context, host Host) Report {
 		h.checkUnitState(ctx),
 		h.checkHardening(ctx),
 		h.checkRoot(),
+		runAsCheck,
 	}}
 }
 
@@ -311,6 +317,39 @@ func (h Host) checkRoot() Check {
 	}
 
 	return Check{"privileges", Pass, fmt.Sprintf("running as %s (uid %d)", h.Username, h.UID)}
+}
+
+// checkRunAs reports the allowlist as the Agent resolves it, so an entry the
+// Agent could not honour is named here instead of only stopping the daemon.
+func (h Host) checkRunAs(cfg config.Config) Check {
+	runAs := config.ResolveRunAs(cfg, config.RunAsHost{UID: h.UID, Username: h.Username, Lookup: h.LookupUser})
+
+	var usable, problems []string
+
+	for _, allowed := range runAs.Users {
+		if allowed.Err != nil {
+			problems = append(problems, allowed.Err.Error())
+
+			continue
+		}
+
+		usable = append(usable, fmt.Sprintf("%s (uid %d)", allowed.Name, allowed.UID))
+	}
+
+	detail := "may run work as " + strings.Join(usable, ", ")
+	if len(usable) == 0 {
+		detail = "no user to run work as; this machine has no name for uid " + strconv.Itoa(h.UID)
+	}
+
+	if len(problems) > 0 {
+		return Check{"execution users", Fail, detail + "; " + strings.Join(problems, "; ")}
+	}
+
+	if len(cfg.RunAsAllowed) == 0 {
+		return Check{"execution users", Pass, detail + " only; run_as_allowed is not set"}
+	}
+
+	return Check{"execution users", Pass, detail}
 }
 
 func (h Host) show(ctx context.Context, properties ...string) (map[string]string, error) {

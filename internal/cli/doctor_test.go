@@ -26,6 +26,7 @@ func TestDoctorOnAHealthyHost(t *testing.T) {
 		"PASS  service          omj-agent is enabled and active",
 		"PASS  hardening        no optional hardening directives are active",
 		"PASS  privileges       running as ohmyjob (uid 998)",
+		"PASS  execution users  may run work as ohmyjob (uid 998) only; run_as_allowed is not set",
 		"",
 	}, "\n")
 
@@ -59,6 +60,7 @@ func TestDoctorOnAnUnhealthyHost(t *testing.T) {
 		"WARN  service          systemd not present; start the agent with omj-agent run",
 		"WARN  hardening        systemd not present; no hardening directives apply",
 		"WARN  privileges       running as root, so every Job runs with root privileges; prefer install.sh --user",
+		"PASS  execution users  may run work as root (uid 0) only; run_as_allowed is not set",
 		"",
 	}, "\n")
 

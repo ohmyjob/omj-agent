@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -14,6 +15,7 @@ func TestParse(t *testing.T) {
 		MaxConcurrentRuns: 8,
 		MaxTimeoutSeconds: 3600,
 		MaxOutputBytes:    1048576,
+		RunAsAllowed:      []string{"deploy", "www-data"},
 	}
 
 	tests := []struct {
@@ -32,6 +34,7 @@ log_level = debug
 max_concurrent_runs = 8
 max_timeout_seconds = 3600
 max_output_bytes = 1048576
+run_as_allowed = deploy, www-data
 `,
 			want: full,
 		},
@@ -46,10 +49,14 @@ log_level = "debug"
 max_concurrent_runs=8
 max_timeout_seconds = 3600
 max_output_bytes = 1048576
+run_as_allowed = "deploy,  www-data"
 `,
 			want: full,
 		},
 		{name: "a lone quote is kept", input: `server_url = "https://x`, want: withServerURL(`"https://x`)},
+		{name: "one allowed user", input: "run_as_allowed = deploy\n", want: withRunAsAllowed("deploy")},
+		{name: "an empty allowlist means the agent's own user", input: "run_as_allowed =\n", want: Default()},
+		{name: "a stray comma is kept for validation", input: "run_as_allowed = deploy,\n", want: withRunAsAllowed("deploy", "")},
 		{name: "unknown key", input: "server_url = https://x\nshell = /bin/zsh\n", wantErr: `line 2: unknown key "shell"`},
 		{name: "missing equals sign", input: "\n\nserver_url https://x\n", wantErr: "line 3: expected key = value"},
 		{name: "duplicate key", input: "log_level = info\nlog_level = debug\n", wantErr: `line 2: duplicate key "log_level"`},
@@ -74,7 +81,7 @@ max_output_bytes = 1048576
 				t.Fatalf("Parse() error = %v", err)
 			}
 
-			if got != tt.want {
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Parse() = %+v, want %+v", got, tt.want)
 			}
 		})
@@ -84,6 +91,13 @@ max_output_bytes = 1048576
 func withServerURL(serverURL string) Config {
 	cfg := Default()
 	cfg.ServerURL = serverURL
+
+	return cfg
+}
+
+func withRunAsAllowed(users ...string) Config {
+	cfg := Default()
+	cfg.RunAsAllowed = users
 
 	return cfg
 }
