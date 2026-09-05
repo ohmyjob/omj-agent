@@ -5,9 +5,11 @@ package protocol
 
 import "github.com/ohmyjob/omj-agent/internal/version"
 
-const (
-	ProtocolVersion = version.ProtocolVersion
+// ProtocolVersion follows internal/version, which the end-to-end suite can override
+// in a binary built with the e2e tag.
+var ProtocolVersion = version.ProtocolVersion
 
+const (
 	BasePath = "/api/agent/v1"
 
 	HeaderProtocolVersion = "X-OMJ-Protocol-Version"

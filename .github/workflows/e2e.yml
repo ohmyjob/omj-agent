@@ -15,7 +15,7 @@ jobs:
         runs-on: ubuntu-latest
         # The suite builds two images and waits on a scheduler tick, so it is slower
         # than the unit gate and runs on its own.
-        timeout-minutes: 30
+        timeout-minutes: 150
 
         steps:
             - name: Check out the Agent
@@ -41,5 +41,7 @@ jobs:
             - name: Build the Server image
               run: make server-image SERVER_DIR=server
 
-            - name: Run the end-to-end suite
-              run: make e2e
+            # Repeat the complete suite on the same runner with fresh harnesses.
+            # A failure in any repetition fails the gate; this is not a retry.
+            - name: Run the end-to-end suite three consecutive times
+              run: make e2e E2E_COUNT=3 E2E_TIMEOUT=135m
