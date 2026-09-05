@@ -95,7 +95,6 @@ func newRejected() rejected {
 	return rejected{ids: map[string]struct{}{}}
 }
 
-// first reports whether this is the first time the id is rejected.
 func (r *rejected) first(runID string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()

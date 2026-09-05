@@ -23,8 +23,6 @@ const (
 	serverURLName = "http://server:8080"
 )
 
-// harness owns the compose project for one test run: the Server image, two Agent
-// containers and the network between them.
 type harness struct {
 	t       *testing.T
 	dir     string
@@ -34,8 +32,6 @@ type harness struct {
 
 var tokenPattern = regexp.MustCompile(`omj_enroll_[A-Za-z0-9]{32}`)
 
-// start brings the project up and signs in. Everything after this reads through the
-// Server's own pages, so a scenario proves what an operator would see.
 func start(t *testing.T) *harness {
 	t.Helper()
 
@@ -77,8 +73,6 @@ func start(t *testing.T) *harness {
 	return h
 }
 
-// requireDocker fails with an explanation rather than hanging, because Docker Desktop
-// stopping mid-suite is a real thing that happened while this harness was written.
 func requireDocker(t *testing.T) {
 	t.Helper()
 
@@ -133,7 +127,6 @@ func (h *harness) artisan(ctx context.Context, args ...string) (string, error) {
 	return h.compose(ctx, append([]string{"exec", "-T", "server", "php", "artisan"}, args...)...)
 }
 
-// enrollmentToken asks the Server for a token the way an operator does, from the console.
 func (h *harness) enrollmentToken(ctx context.Context) (string, error) {
 	output, err := h.artisan(ctx, "omj:enrollment-token")
 	if err != nil {
@@ -174,8 +167,6 @@ func (h *harness) enrollInto(ctx context.Context, service, directory, name, toke
 	)
 }
 
-// exitCode reports the status a failed command returned, so a scenario can assert the
-// Agent's own vocabulary rather than matching on message text.
 func exitCode(err error) int {
 	var exit *exec.ExitError
 
@@ -186,7 +177,6 @@ func exitCode(err error) int {
 	return -1
 }
 
-// startAgent runs the daemon as the service user and keeps its log for a failed test.
 func (h *harness) startAgent(ctx context.Context, service string) error {
 	_, err := h.compose(ctx, "exec", "-d", "-u", "ohmyjob", service,
 		"sh", "-c", "omj-agent run --log-format json >> /tmp/omj-agent.log 2>&1")
@@ -194,7 +184,6 @@ func (h *harness) startAgent(ctx context.Context, service string) error {
 	return err
 }
 
-// enrolledAgent is the whole path an operator follows for a new Machine.
 func (h *harness) enrolledAgent(ctx context.Context, service, name string) {
 	h.t.Helper()
 
@@ -212,8 +201,6 @@ func (h *harness) enrolledAgent(ctx context.Context, service, name string) {
 	}
 }
 
-// dumpLogs prints what both sides were doing, which is the first thing anyone wants
-// when a scenario fails on a machine they are not sitting at.
 func (h *harness) dumpLogs() {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(context.Background()), 30*time.Second)
 	defer cancel()
@@ -241,7 +228,6 @@ func tail(text string, lines int) string {
 	return strings.Join(all[len(all)-lines:], "\n")
 }
 
-// eventually polls until the condition holds, reporting the last failure when it never does.
 func eventually(t *testing.T, within time.Duration, what string, condition func() (bool, string)) {
 	t.Helper()
 

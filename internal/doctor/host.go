@@ -1,6 +1,4 @@
-// Package doctor inspects an installation the way an operator would and
-// gives one verdict per check, so status and doctor share what they read
-// from the machine.
+// Package doctor provides installation checks shared by status and doctor.
 package doctor
 
 import (
@@ -18,20 +16,17 @@ import (
 	"github.com/ohmyjob/omj-agent/internal/state"
 )
 
-// Pinger is the part of the protocol client the checks need.
 type Pinger interface {
 	Ping(ctx context.Context) (protocol.PingResponse, error)
 	ServerVersion() string
 }
 
-// Systemctl runs systemctl on hosts that have systemd.
 type Systemctl interface {
 	Available() bool
 	Run(ctx context.Context, args ...string) (string, error)
 }
 
-// Host is everything the checks read from the machine. Tests replace the
-// parts that would need root, a Server or systemd.
+// Host isolates checks from root access, the Server, and systemd.
 type Host struct {
 	Paths          config.Paths
 	UID            int
@@ -91,7 +86,6 @@ func dial(cfg config.Config, credential config.Credential) (Pinger, error) {
 	})
 }
 
-// Probe is one ping and what can be read from it.
 type Probe struct {
 	Response      protocol.PingResponse
 	ServerVersion string

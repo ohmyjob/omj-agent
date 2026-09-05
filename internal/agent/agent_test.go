@@ -93,8 +93,6 @@ func (f *fakeTicker) channel(interval time.Duration) chan time.Time {
 	return ch
 }
 
-// tickUntil keeps offering ticks on the interval's channel until done
-// reports true or the deadline passes.
 func (f *fakeTicker) tickUntil(t *testing.T, interval time.Duration, done func() bool) {
 	t.Helper()
 

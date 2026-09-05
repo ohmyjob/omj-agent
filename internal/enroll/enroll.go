@@ -1,6 +1,4 @@
-// Package enroll turns a one-time enrollment token into a configured,
-// credentialed Machine. It holds the logic; the CLI only parses flags and
-// prints the outcome.
+// Package enroll exchanges a one-time token for a Machine configuration and credential.
 package enroll
 
 import (

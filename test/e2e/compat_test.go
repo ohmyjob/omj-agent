@@ -9,10 +9,6 @@ import (
 	"time"
 )
 
-// TestProtocolRejection proves the compatibility promise: an Agent speaking a protocol
-// version the Server does not support is refused, the Machine says so, and no work is
-// ever handed to it. The Agent is the real binary, built with the e2e tag so its
-// protocol version can be forced; a release binary has no such switch.
 func TestProtocolRejection(t *testing.T) {
 	h := start(t)
 

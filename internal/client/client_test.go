@@ -91,8 +91,6 @@ func credential(t *testing.T) config.Credential {
 	return c
 }
 
-// newServer answers every request with the given status and body, records the
-// request, and returns a client whose server URL carries a path prefix.
 func newServer(t *testing.T, status int, body []byte, extra http.Header) (*recorded, *Client) {
 	t.Helper()
 

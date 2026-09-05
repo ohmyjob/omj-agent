@@ -75,9 +75,7 @@ type logWindow struct {
 	Terminal bool   `json:"terminal"`
 }
 
-// TestCoreScenarios runs the whole path once against one harness: two Agents enrol,
-// Jobs run by hand and on a schedule, and enrollment tokens are refused when they should
-// be. They share a harness because bringing the images up costs far more than the tests.
+// Share a harness to avoid rebuilding containers for each scenario.
 func TestCoreScenarios(t *testing.T) {
 	h := start(t)
 
@@ -235,8 +233,6 @@ type jobRequest struct {
 	Command  string
 	Schedule string
 
-	// Zero values keep the defaults the core scenarios rely on: a two minute timeout,
-	// run_late and an hour of grace. The failure and offline scenarios set them.
 	Timeout      int
 	MissedPolicy string
 	GraceSeconds int
@@ -362,9 +358,7 @@ func (h *harness) awaitOnlineMachines(ctx context.Context, count int) map[string
 
 	online := map[string]machineProps{}
 
-	// Repeated partitions can leave the Agent in its documented 60-second
-	// backoff. Ninety seconds covers that delay and the next request without
-	// weakening any production timing assertion.
+	// Allow the 60-second reconnect backoff and the next request.
 	eventually(h.t, 90*time.Second, fmt.Sprintf("%d Machines coming online", count), func() (bool, string) {
 		page, err := h.client.get(ctx, "/machines")
 		if err != nil {
