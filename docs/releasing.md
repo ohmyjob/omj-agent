@@ -1,11 +1,18 @@
 # Releasing the Agent
 
-Releases are built by GoReleaser from a Git tag. The workflow in
-`.github/workflows/release.yml` runs the quality gates, builds static
-binaries for `linux/amd64` and `linux/arm64`, and publishes the archives,
-the `SHA256SUMS` file and the changelog to GitHub Releases. The installer
-at `packaging/install.sh` (served from ohmyjob.com) downloads the latest
-published release and verifies it against `SHA256SUMS`.
+Releases are built by GoReleaser when a GitHub Release is published. The
+workflow in `.github/workflows/release.yml` runs the quality gates, builds
+static binaries for `linux/amd64` and `linux/arm64`, and attaches the
+archives and the `SHA256SUMS` file to that release. Pushing a tag on its own
+builds nothing. The installer at `packaging/install.sh` (served from
+ohmyjob.com) downloads the latest published release and verifies it against
+`SHA256SUMS`.
+
+The release notes are the ones you write: GoReleaser keeps the body it finds
+on an existing release rather than generating its own. Write them from the
+CHANGELOG entry, and remember the archives arrive a couple of minutes after
+you publish, so anyone downloading in that window finds a release with no
+files on it yet.
 
 ## Versions
 
@@ -25,11 +32,11 @@ published release and verifies it against `SHA256SUMS`.
 
 ## Release notes
 
-GoReleaser groups the commits since the previous tag by their conventional
-prefix (features, fixes, build and packaging, other changes) and drops
-`docs`, `test` and `chore` commits. Write commit subjects as release notes
-lines and add anything the grouping cannot express (protocol changes,
-upgrade steps) to the release on GitHub after it is published.
+Write them from the CHANGELOG entry for the version, and say what the
+grouping of commits never could: which Server versions accept this Agent,
+and what an operator has to do to upgrade. GoReleaser's own commit grouping
+is still configured but does not reach the release, because the release
+already exists by the time it runs.
 
 ## Checklist
 
@@ -40,18 +47,24 @@ upgrade steps) to the release on GitHub after it is published.
    archives and `SHA256SUMS` into `dist/`, and
    `make test-install RELEASE_DIR=dist` installs them inside Debian and
    Fedora containers.
-4. Tag the commit and push the tag:
+4. Tag the commit, push the tag, and publish a release from it with the
+   CHANGELOG entry as its notes:
 
    ```sh
-   git tag -a v0.1.0 -m "v0.1.0"
-   git push origin v0.1.0
+   git tag -a v0.1.1 -m "v0.1.1"
+   git push origin v0.1.1
+   gh release create v0.1.1 --verify-tag --title "v0.1.1" \
+     --notes-file notes.md
    ```
 
-5. Watch the `release` workflow. It fails before publishing anything if a
-   quality gate fails; fix the problem on `main`, delete the tag locally and
-   remotely, and tag again.
-6. Open the release on GitHub, read the generated notes, and add the
-   protocol and upgrade remarks when needed.
+   Publishing is what starts the build. A pre-release tag (`-rc.1`) needs
+   `--prerelease` so the installer keeps serving the previous stable
+   version.
+
+5. Watch the `release` workflow. It attaches nothing if a quality gate
+   fails; fix the problem on `main`, then delete the release and the tag,
+   and start again from a commit that passes.
+6. Check the archives and `SHA256SUMS` are on the release.
 7. Update `recommended_agent_version` (and `min_agent_version` when an
    older Agent must no longer connect) in the Server's `config/ohmyjob.php`
    so the Machines page and the protocol checks follow the release.
