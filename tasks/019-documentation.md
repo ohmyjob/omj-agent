@@ -46,11 +46,9 @@ Everything an operator needs to install, run, secure and troubleshoot the Agent,
 - Every `agent.conf` key, every subcommand flag, every installer flag and all
   eleven exit codes are covered, checked by grep rather than by eye. Every
   relative link and the one heading anchor resolve.
-- `CHANGELOG.md` puts the first release under `Unreleased` because no version
-  is tagged yet: the repository has no tags, while the Server's
-  `min_agent_version` and `recommended_agent_version` are already `0.1.0`.
-  Tagging `v0.1.0` is what closes that gap, and the Unreleased section becomes
-  its notes.
+- `CHANGELOG.md` records `0.1.0` (released 2026-09-04, protocol 1) and puts the
+  two fixes landed since it under `Unreleased`. The other commits since the tag
+  are tests, CI and docs, which the release notes drop by convention.
 - The Server repository runs lychee over `*.md` and `docs/**/*.md` in CI; this
   repository has no equivalent job. Worth adding for parity, but it is CI
   rather than documentation, so it was left out of this task.

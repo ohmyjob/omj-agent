@@ -10,8 +10,18 @@ here; see [docs/releasing.md](docs/releasing.md).
 
 ## [Unreleased]
 
-The first release is not tagged yet. Everything below is what `v0.1.0` will
-contain. Protocol version 1, for Server 0.1.0 or newer.
+### Fixed
+
+- A cancellation is acted on once. The Server keeps a Run in `cancel_run_ids`
+  until its finish is accepted, so every poll while the process was dying
+  repeated the cancellation and logged it again.
+- The machine id is recorded in the state file, so a state file left behind by
+  a different enrollment is recognised and kept aside instead of having its
+  Runs reported to a Server that never knew them.
+
+## [0.1.0] - 2026-09-04
+
+First release. Protocol version 1, for Server 0.1.0 or newer.
 
 ### Added
 
@@ -54,4 +64,5 @@ contain. Protocol version 1, for Server 0.1.0 or newer.
   credential is read only from a `0600` file, never from a flag or the
   environment, and is redacted everywhere it could be printed.
 
-[unreleased]: https://github.com/ohmyjob/omj-agent/commits/main
+[unreleased]: https://github.com/ohmyjob/omj-agent/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ohmyjob/omj-agent/releases/tag/v0.1.0
