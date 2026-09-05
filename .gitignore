@@ -2,3 +2,6 @@
 /dist/
 coverage.out
 *.test
+
+# Claude Code worktrees live inside the repository.
+/.claude/worktrees/

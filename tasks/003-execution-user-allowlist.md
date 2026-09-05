@@ -22,9 +22,9 @@ Server can only choose from that list.
 - The list rides in the metadata block `enroll` and `work` already share, so
   it is set at enrollment and refreshed by the 25-second heartbeat. Not
   `ping`: that is a GET with no body, used only by `status` and `doctor`.
-- The `ping` **response** echoes back the list the Server holds, so `doctor`
-  can report drift — "the Server has deploy, www-data" — without a second
-  write path.
+- Reporting drift between the local list and the Server's copy waits for the
+  Server to echo it in the `ping` response (Server 012). `doctor` reports the
+  local list until then.
 - An allowlist is only meaningful on a privileged Agent: one running as
   `ohmyjob` can only ever be `ohmyjob`. Validation should say so rather than
   accept a list it can never honour.
