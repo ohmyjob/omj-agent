@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -928,5 +929,121 @@ func TestRepeatedCancellationIsActedOnOnce(t *testing.T) {
 	reported := h.reporter.reported()
 	if len(reported) != 1 || !reported[0].Process.Wait().Cancelled {
 		t.Fatalf("reported = %+v, want one cancelled run", reported)
+	}
+}
+
+// PRD §21: the Server picks from the operator's list and a name that is not on
+// it is refused, so a Server that names the wrong user is wrong rather than
+// dangerous.
+func TestALeaseNamingAUserTheMachineDoesNotAllowIsRefused(t *testing.T) {
+	current, err := user.Current()
+	if err != nil {
+		t.Fatalf("current user: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		allowed    []string
+		runAs      string
+		wantErr    string
+		wantSpawn  bool
+		wantStatus protocol.RunStatus
+	}{
+		{
+			name:       "a user the operator never allowed",
+			allowed:    []string{"deploy"},
+			runAs:      "root",
+			wantErr:    `does not allow work to run as "root"`,
+			wantStatus: protocol.RunStatusFailed,
+		},
+		{
+			name:       "any user at all when the machine has no allowlist",
+			runAs:      "deploy",
+			wantErr:    `allows no execution users, so it will not run work as "deploy"`,
+			wantStatus: protocol.RunStatusFailed,
+		},
+		{
+			name:       "an allowed user runs",
+			allowed:    []string{current.Username},
+			runAs:      current.Username,
+			wantSpawn:  true,
+			wantStatus: protocol.RunStatusSuccess,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: tt.allowed})
+
+			evidence := filepath.Join(t.TempDir(), "executed")
+			lease := h.lease(runA, "touch "+evidence)
+			lease.RunAs = &tt.runAs
+			h.server.Enqueue(lease)
+
+			h.run(t)
+
+			reported := h.reporter.reported()
+			if len(reported) != 1 {
+				t.Fatalf("reported = %d runs, want 1", len(reported))
+			}
+
+			if spawned := reported[0].SpawnErr == nil; spawned != tt.wantSpawn {
+				t.Fatalf("spawned = %v (err %v), want %v", spawned, reported[0].SpawnErr, tt.wantSpawn)
+			}
+
+			if _, err := os.Stat(evidence); (err == nil) != tt.wantSpawn {
+				t.Errorf("command executed = %v, want %v", err == nil, tt.wantSpawn)
+			}
+
+			if outcome, _ := h.store.RecentOutcome(runA); outcome.Status != string(tt.wantStatus) {
+				t.Errorf("recent outcome = %+v, want %s", outcome, tt.wantStatus)
+			}
+
+			if tt.wantErr != "" && !strings.Contains(h.reporter.stderrOf(runA), tt.wantErr) {
+				t.Errorf("stderr = %q, want it to name the refusal %q", h.reporter.stderrOf(runA), tt.wantErr)
+			}
+		})
+	}
+}
+
+// A refusal must reach the Server as an outcome rather than as silence, so the
+// operator sees a Run that failed and why, not one that never happened.
+func TestARefusedLeaseIsFinishedWithAReason(t *testing.T) {
+	h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: []string{"deploy"}})
+
+	runAs := "root"
+	lease := h.lease(runA, "true")
+	lease.RunAs = &runAs
+	h.server.Enqueue(lease)
+
+	h.run(t)
+
+	finishes := h.server.Finishes()
+	if len(finishes) != 1 {
+		t.Fatalf("finishes = %d, want 1", len(finishes))
+	}
+
+	request := finishes[0].Request
+	if request.Status != protocol.RunStatusFailed || request.Reason == nil || *request.Reason != protocol.ReasonSpawnFailed {
+		t.Fatalf("finish = %+v, want failed with reason spawn_failed", request)
+	}
+}
+
+// A lease with no run_as is every lease an older Server sends, and it must
+// behave exactly as it did before per-Job users existed.
+func TestALeaseWithoutARunAsUserIsUnchanged(t *testing.T) {
+	h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: []string{"deploy"}})
+
+	h.server.Enqueue(h.lease(runA, "true"))
+
+	h.run(t)
+
+	reported := h.reporter.reported()
+	if len(reported) != 1 || reported[0].SpawnErr != nil {
+		t.Fatalf("reported = %+v, want one run that started", reported)
+	}
+
+	if outcome, _ := h.store.RecentOutcome(runA); outcome.Status != string(protocol.RunStatusSuccess) {
+		t.Fatalf("recent outcome = %+v, want success", outcome)
 	}
 }
