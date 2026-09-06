@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -177,11 +179,17 @@ func (a *Agent) spawn(ctx context.Context, verified verifiedLease) *Run {
 		Chunker:       a.chunker(verified),
 	}
 
+	runAs, err := a.executionUser(lease)
+	if err != nil {
+		return a.notStarted(run, err)
+	}
+
 	spec := runner.Spec{
 		RunID:      lease.RunID,
 		JobName:    lease.JobName,
 		MachineID:  a.cfg.MachineID,
 		Command:    lease.Command,
+		RunAs:      runAs,
 		Shell:      deref(lease.Shell),
 		WorkingDir: deref(lease.WorkingDirectory),
 		Env:        lease.Environment,
@@ -191,14 +199,7 @@ func (a *Agent) spawn(ctx context.Context, verified verifiedLease) *Run {
 
 	process, err := a.runner.Start(ctx, spec, run.Chunker)
 	if err != nil {
-		a.logger.Error("process not started", "run_id", lease.RunID, "job", lease.JobName, "error", err)
-		run.SpawnErr = err
-		// The error text is the whole log of a Run that never started, so it
-		// is flushed at once instead of waiting for a tick.
-		run.Chunker.Write(runner.Stderr, []byte(err.Error()+"\n"))
-		run.Chunker.Close()
-
-		return run
+		return a.notStarted(run, err)
 	}
 
 	run.Process = process
@@ -221,6 +222,33 @@ func (a *Agent) chunker(verified verifiedLease) *output.Chunker {
 		MaxOutput:     verified.maxOutput,
 		Now:           a.now,
 	})
+}
+
+// A name the operator never allowed is refused rather than quietly downgraded
+// to the service user, because running somebody else's work under the wrong
+// identity is how a Server that is simply wrong becomes dangerous (PRD §21).
+func (a *Agent) executionUser(lease protocol.RunLease) (string, error) {
+	name := deref(lease.RunAs)
+	if name == "" || slices.Contains(a.runAsAllowed, name) {
+		return name, nil
+	}
+
+	if len(a.runAsAllowed) == 0 {
+		return "", fmt.Errorf("this machine allows no execution users, so it will not run work as %q", name)
+	}
+
+	return "", fmt.Errorf("this machine does not allow work to run as %q; run_as_allowed lists %s", name, strings.Join(a.runAsAllowed, ", "))
+}
+
+// The error text is the whole log of a Run that never started, so it is
+// flushed at once instead of waiting for a tick.
+func (a *Agent) notStarted(run *Run, err error) *Run {
+	a.logger.Error("process not started", "run_id", run.Lease.RunID, "job", run.Lease.JobName, "error", err)
+	run.SpawnErr = err
+	run.Chunker.Write(runner.Stderr, []byte(err.Error()+"\n"))
+	run.Chunker.Close()
+
+	return run
 }
 
 func deref(value *string) string {

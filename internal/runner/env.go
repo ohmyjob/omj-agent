@@ -12,12 +12,18 @@ const (
 )
 
 // The daemon's own environment is never inherited, so a Job cannot read
-// anything from the Agent process; the Job's variables may override any default.
-func environment(spec Spec, serviceUser *user.User) []string {
+// anything from the Agent process; the Job's variables may override any
+// default. Every identity here belongs to the execution user rather than to
+// the Agent, so a Job that runs as somebody else is not told otherwise.
+// SHELL is the shell the command is actually running under: the execution
+// user's login shell is not part of what os/user answers, and a passwd file
+// read behind its back would be wrong for any directory service.
+func environment(spec Spec, executionUser *user.User, shell string) []string {
 	vars := map[string]string{
-		"HOME":           serviceUser.HomeDir,
-		"USER":           serviceUser.Username,
-		"LOGNAME":        serviceUser.Username,
+		"HOME":           executionUser.HomeDir,
+		"USER":           executionUser.Username,
+		"LOGNAME":        executionUser.Username,
+		"SHELL":          shell,
 		"PATH":           defaultPath,
 		"LANG":           defaultLang,
 		"OMJ_RUN_ID":     spec.RunID,

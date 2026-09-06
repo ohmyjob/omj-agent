@@ -38,6 +38,10 @@ type PingResponse struct {
 	MachineID     string    `json:"machine_id"`
 	ServerVersion string    `json:"server_version"`
 	ServerTime    time.Time `json:"server_time"`
+
+	// The Server's record of the allowlist, not the allowlist: doctor compares
+	// the two so an operator can see drift, and the Agent adopts neither.
+	RecordedRunAsAllowed []string `json:"recorded_run_as_allowed,omitempty"`
 }
 
 type ActiveRun struct {
@@ -56,16 +60,26 @@ type WorkResponse struct {
 	Runs         []RunLease  `json:"runs"`
 	CancelRunIDs []string    `json:"cancel_run_ids"`
 	Config       AgentConfig `json:"config"`
+
+	// A Server that never asks leaves this false, which is every Server built
+	// before discovery existed.
+	DiscoveryRequested bool `json:"discovery_requested"`
 }
 
 type RunLease struct {
-	RunID            string            `json:"run_id"`
-	MachineID        string            `json:"machine_id"`
-	JobID            string            `json:"job_id"`
-	JobName          string            `json:"job_name"`
-	Trigger          Trigger           `json:"trigger"`
-	ScheduledFor     *time.Time        `json:"scheduled_for"`
-	Command          string            `json:"command"`
+	RunID        string     `json:"run_id"`
+	MachineID    string     `json:"machine_id"`
+	JobID        string     `json:"job_id"`
+	JobName      string     `json:"job_name"`
+	Trigger      Trigger    `json:"trigger"`
+	ScheduledFor *time.Time `json:"scheduled_for"`
+	Command      string     `json:"command"`
+
+	// RunAs names the user the work must run as, and null means the Agent's
+	// own service user. The Agent only ever honours a name the operator put in
+	// run_as_allowed, so this narrows what the Server may pick and can never
+	// widen it (PRD §21).
+	RunAs            *string           `json:"run_as"`
 	Shell            *string           `json:"shell"`
 	WorkingDirectory *string           `json:"working_directory"`
 	Environment      map[string]string `json:"environment"`
@@ -134,4 +148,37 @@ type ErrorResponse struct {
 	Errors                    map[string][]string `json:"errors,omitempty"`
 	SupportedProtocolVersions []int               `json:"supported_protocol_versions,omitempty"`
 	MinAgentVersion           string              `json:"min_agent_version,omitempty"`
+}
+
+// The discovery wire types. What a Machine already schedules is reported as
+// evidence: the Server keeps it as a proposal and never schedules from it.
+type DiscoveryRequest struct {
+	Truncated         bool               `json:"truncated"`
+	OmittedEntries    int                `json:"omitted_entries"`
+	UnreadableSources []UnreadableSource `json:"unreadable_sources"`
+	Entries           []DiscoveredEntry  `json:"entries"`
+}
+
+type UnreadableSource struct {
+	Source string `json:"source"`
+	Reason string `json:"reason"`
+}
+
+type DiscoveredEntry struct {
+	Source       string  `json:"source"`
+	Raw          string  `json:"raw"`
+	Schedule     *string `json:"schedule"`
+	ScheduleKind *string `json:"schedule_kind"`
+	Timezone     *string `json:"timezone"`
+	Command      *string `json:"command"`
+	RunAs        *string `json:"run_as"`
+	Unit         *string `json:"unit"`
+	IsAgent      bool    `json:"is_agent"`
+	Unparseable  bool    `json:"unparseable"`
+	Note         *string `json:"note"`
+}
+
+type DiscoveryResponse struct {
+	Entries    int       `json:"entries"`
+	ReportedAt time.Time `json:"reported_at"`
 }

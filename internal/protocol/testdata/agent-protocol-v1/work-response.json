@@ -10,6 +10,7 @@
             "command": "/home/ian/backup.sh",
             "shell": null,
             "working_directory": null,
+            "run_as": null,
             "environment": {
                 "KEY": "value"
             },
@@ -19,6 +20,7 @@
         }
     ],
     "cancel_run_ids": [],
+    "discovery_requested": false,
     "config": {
         "heartbeat_interval_seconds": 15,
         "output_flush_interval_ms": 500,

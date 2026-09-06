@@ -1,0 +1,51 @@
+{
+    "truncated": false,
+    "omitted_entries": 0,
+    "unreadable_sources": [
+        {
+            "source": "crontab:deploy",
+            "reason": "permission denied"
+        }
+    ],
+    "entries": [
+        {
+            "source": "crontab:root",
+            "raw": "0 3 * * * /usr/local/bin/backup.sh",
+            "schedule": "0 3 * * *",
+            "schedule_kind": "cron",
+            "timezone": "UTC",
+            "command": "/usr/local/bin/backup.sh",
+            "run_as": "root",
+            "unit": null,
+            "is_agent": false,
+            "unparseable": false,
+            "note": null
+        },
+        {
+            "source": "systemd:backup.timer",
+            "raw": "OnCalendar=daily",
+            "schedule": "daily",
+            "schedule_kind": "calendar",
+            "timezone": "Europe/Lisbon",
+            "command": "/usr/bin/restic backup /srv",
+            "run_as": "root",
+            "unit": "backup.service",
+            "is_agent": false,
+            "unparseable": false,
+            "note": null
+        },
+        {
+            "source": "crontab:ian",
+            "raw": "@reboot /home/ian/warm-cache.sh",
+            "schedule": null,
+            "schedule_kind": null,
+            "timezone": null,
+            "command": null,
+            "run_as": "ian",
+            "unit": null,
+            "is_agent": false,
+            "unparseable": true,
+            "note": "@reboot has no time of day, so Oh My Job cannot schedule it."
+        }
+    ]
+}
