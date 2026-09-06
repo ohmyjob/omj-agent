@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ohmyjob/omj-agent/internal/atomicfile"
+	"github.com/ohmyjob/omj-agent/internal/protocol"
 )
 
 const (
@@ -33,20 +34,25 @@ type ActiveRun struct {
 }
 
 type RecentRun struct {
-	RunID      string     `json:"run_id"`
-	Status     string     `json:"status"`
-	ExitCode   *int       `json:"exit_code"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt time.Time  `json:"finished_at"`
+	RunID      string                 `json:"run_id"`
+	Status     string                 `json:"status"`
+	ExitCode   *int                   `json:"exit_code"`
+	StartedAt  *time.Time             `json:"started_at"`
+	FinishedAt time.Time              `json:"finished_at"`
+	Reason     *protocol.FinishReason `json:"reason,omitempty"`
 }
 
 // Outcome describes how a Run ended; ExitCode is nil when the process never
 // reported one, for example after a spawn failure, and StartedAt is nil when
-// it never started.
+// it never started. Reason is nil for the ordinary endings that need no
+// explanation, and is kept rather than re-derived because a Run refused for
+// its execution user is indistinguishable from any other failure once the
+// reason is gone.
 type Outcome struct {
 	Status    string
 	ExitCode  *int
 	StartedAt *time.Time
+	Reason    *protocol.FinishReason
 }
 
 type contents struct {
@@ -174,7 +180,7 @@ func (s *Store) MarkFinished(runID string, outcome Outcome) error {
 
 	s.contents.ActiveRuns = slices.DeleteFunc(s.contents.ActiveRuns, func(r ActiveRun) bool { return r.RunID == runID })
 
-	recent := RecentRun{RunID: runID, Status: outcome.Status, ExitCode: cloneExitCode(outcome.ExitCode), StartedAt: cloneTime(outcome.StartedAt), FinishedAt: s.now()}
+	recent := RecentRun{RunID: runID, Status: outcome.Status, ExitCode: cloneExitCode(outcome.ExitCode), StartedAt: cloneTime(outcome.StartedAt), FinishedAt: s.now(), Reason: cloneReason(outcome.Reason)}
 
 	if i := slices.IndexFunc(s.contents.RecentRuns, func(r RecentRun) bool { return r.RunID == runID }); i >= 0 {
 		s.contents.RecentRuns[i] = recent
@@ -204,6 +210,7 @@ func (s *Store) RecentOutcome(runID string) (RecentRun, bool) {
 	recent := s.contents.RecentRuns[i]
 	recent.ExitCode = cloneExitCode(recent.ExitCode)
 	recent.StartedAt = cloneTime(recent.StartedAt)
+	recent.Reason = cloneReason(recent.Reason)
 
 	return recent, true
 }
@@ -267,6 +274,16 @@ func cloneExitCode(code *int) *int {
 	}
 
 	clone := *code
+
+	return &clone
+}
+
+func cloneReason(reason *protocol.FinishReason) *protocol.FinishReason {
+	if reason == nil {
+		return nil
+	}
+
+	clone := *reason
 
 	return &clone
 }

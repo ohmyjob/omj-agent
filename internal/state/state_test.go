@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ohmyjob/omj-agent/internal/atomicfile"
+	"github.com/ohmyjob/omj-agent/internal/protocol"
 )
 
 var epoch = time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
@@ -142,6 +143,94 @@ func TestRecentRunsWrittenBeforeTheStartTimeStillLoad(t *testing.T) {
 	if !ok || recent.Status != "success" || recent.StartedAt != nil {
 		t.Fatalf("RecentOutcome() = %+v, %v; want the legacy success without a start time", recent, ok)
 	}
+}
+
+func TestRecentRunsWrittenBeforeTheReasonStillLoad(t *testing.T) {
+	f := load(t)
+
+	legacy := `{"machine_id":"machine-1","active_runs":[],"recent_runs":[{"run_id":"run-1","status":"failed","exit_code":null,"started_at":null,"finished_at":"2026-09-04T12:00:00Z"}]}`
+	if err := os.WriteFile(f.path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	f.reload(t)
+
+	if f.log.Len() != 0 {
+		t.Fatalf("loading a file without a reason logged %q; want it read as written", f.log.String())
+	}
+
+	recent, ok := f.store.RecentOutcome("run-1")
+	if !ok || recent.Status != "failed" || recent.Reason != nil {
+		t.Fatalf("RecentOutcome() = %+v, %v; want the failure with no reason", recent, ok)
+	}
+}
+
+func TestTheReasonARunEndedSurvivesAReload(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		reason *protocol.FinishReason
+	}{
+		{"a refused execution user", "failed", reasonPtr(protocol.ReasonRunAsNotPermitted)},
+		{"a command that never started", "failed", reasonPtr(protocol.ReasonSpawnFailed)},
+		{"a run the agent gave up on", "lost", reasonPtr(protocol.ReasonAgentRestarted)},
+		{"an ending that explains itself", "success", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := load(t)
+
+			if err := f.store.MarkFinished("run-1", Outcome{Status: tt.status, Reason: tt.reason}); err != nil {
+				t.Fatal(err)
+			}
+
+			f.reload(t)
+
+			recent, ok := f.store.RecentOutcome("run-1")
+			if !ok {
+				t.Fatal("RecentOutcome() did not find the finished run")
+			}
+
+			switch {
+			case tt.reason == nil && recent.Reason != nil:
+				t.Fatalf("Reason = %q, want none", *recent.Reason)
+			case tt.reason != nil && recent.Reason == nil:
+				t.Fatalf("Reason = none, want %q", *tt.reason)
+			case tt.reason != nil && *recent.Reason != *tt.reason:
+				t.Fatalf("Reason = %q, want %q", *recent.Reason, *tt.reason)
+			}
+		})
+	}
+}
+
+// The stored reason must not alias the caller's, or a later write through the
+// same pointer would rewrite history.
+func TestTheStoredReasonIsACopy(t *testing.T) {
+	f := load(t)
+
+	reason := protocol.ReasonRunAsNotPermitted
+	if err := f.store.MarkFinished("run-1", Outcome{Status: "failed", Reason: &reason}); err != nil {
+		t.Fatal(err)
+	}
+
+	reason = protocol.ReasonSpawnFailed
+
+	recent, ok := f.store.RecentOutcome("run-1")
+	if !ok || recent.Reason == nil || *recent.Reason != protocol.ReasonRunAsNotPermitted {
+		t.Fatalf("Reason = %v, want run_as_not_permitted", recent.Reason)
+	}
+
+	*recent.Reason = protocol.ReasonAgentStopped
+
+	again, _ := f.store.RecentOutcome("run-1")
+	if again.Reason == nil || *again.Reason != protocol.ReasonRunAsNotPermitted {
+		t.Fatalf("Reason = %v after the caller wrote to it, want run_as_not_permitted", again.Reason)
+	}
+}
+
+func reasonPtr(reason protocol.FinishReason) *protocol.FinishReason {
+	return &reason
 }
 
 func TestMarkingKeepsOneEntryPerRun(t *testing.T) {

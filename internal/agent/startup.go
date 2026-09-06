@@ -55,9 +55,10 @@ func (a *Agent) logStartup() {
 func (a *Agent) reconcile() {
 	for _, active := range a.state.Active() {
 		startedAt := active.StartedAt
+		reason := protocol.ReasonAgentRestarted
 		a.logger.Warn("run was active when the agent last stopped; reporting it as lost", "run_id", active.RunID, "pid", active.PID)
 
-		outcome := state.Outcome{Status: string(protocol.RunStatusLost), StartedAt: &startedAt}
+		outcome := state.Outcome{Status: string(protocol.RunStatusLost), StartedAt: &startedAt, Reason: &reason}
 		if err := a.state.MarkFinished(active.RunID, outcome); err != nil {
 			a.logger.Error("state not saved", "run_id", active.RunID, "error", err)
 		}

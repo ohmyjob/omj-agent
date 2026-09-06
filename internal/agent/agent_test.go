@@ -1069,6 +1069,50 @@ func TestARefusedLeaseIsFinishedWithAReason(t *testing.T) {
 	}
 }
 
+// The reason has to reach the state file, because that is the only copy left
+// once the Server asks again after a restart. Resending it is covered by
+// TestTheStoredReasonIsResent; this is the half that writes it down.
+func TestTheReasonARunEndedIsRecorded(t *testing.T) {
+	current, err := user.Current()
+	if err != nil {
+		t.Fatalf("current user: %v", err)
+	}
+
+	missingDir := filepath.Join(t.TempDir(), "gone")
+
+	tests := []struct {
+		name       string
+		runAs      *string
+		workingDir *string
+		want       protocol.FinishReason
+	}{
+		{"a user this machine does not allow", ptr("root"), nil, protocol.ReasonRunAsNotPermitted},
+		{"a command that will not start", &current.Username, &missingDir, protocol.ReasonSpawnFailed},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: []string{current.Username}})
+
+			lease := h.lease(runA, "true")
+			lease.RunAs = tt.runAs
+			lease.WorkingDirectory = tt.workingDir
+			h.server.Enqueue(lease)
+
+			h.run(t)
+
+			outcome, ok := h.store.RecentOutcome(runA)
+			if !ok {
+				t.Fatal("RecentOutcome() did not find the refused run")
+			}
+
+			if outcome.Reason == nil || *outcome.Reason != tt.want {
+				t.Fatalf("stored reason = %v, want %s", outcome.Reason, tt.want)
+			}
+		})
+	}
+}
+
 // A lease with no run_as is every lease an older Server sends, and it must
 // behave exactly as it did before per-Job users existed.
 func TestALeaseWithoutARunAsUserIsUnchanged(t *testing.T) {
