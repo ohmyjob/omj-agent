@@ -308,7 +308,7 @@ func (p *report) finishRequest(result *runner.Result, lastSeq uint64, truncated 
 	case p.run.CancelledBeforeStart:
 		request.Status = protocol.RunStatusCancelled
 	case p.run.SpawnErr != nil:
-		reason := protocol.ReasonSpawnFailed
+		reason := p.run.SpawnReason
 		request.Status = protocol.RunStatusFailed
 		request.Reason = &reason
 	default:

@@ -69,6 +69,13 @@ already exists by the time it runs.
    older Agent must no longer connect) in the Server's `config/ohmyjob.php`
    so the Machines page and the protocol checks follow the release.
 
+   The same file holds `discovery_agent_version`, the version from which the
+   Server asks a Machine what it already schedules. It reads `0.2.0`, the
+   release meant to first answer `POST /discovery`. If that endpoint ships
+   in any other version, change it to match: a Server that never asks looks
+   exactly like a Machine with nothing scheduled on it, and nothing reports
+   the difference.
+
 ## Snapshots
 
 Every pull request and push to `main` builds a snapshot release in CI
