@@ -22,8 +22,9 @@ const (
 	otherExecute = 0o001
 )
 
-// Naming the user the Agent already runs as needs no credential, which is what
-// keeps an unprivileged Agent working.
+// dropPrivileges gives the child the execution user's credential, and none at
+// all when that is the user the Agent already runs as, which is what keeps an
+// unprivileged Agent working.
 func dropPrivileges(cmd *exec.Cmd, executionUser *user.User) error {
 	uid, err := numericID(executionUser.Uid, "uid", executionUser.Username)
 	if err != nil {
@@ -81,8 +82,9 @@ func numericID(value, kind, username string) (uint32, error) {
 	return uint32(id), nil
 }
 
-// Exec would otherwise fail with a bare permission error that reads as though
-// the command itself were missing, so the sentence names both.
+// checkWorkingDir names both the directory and the user, because exec would
+// otherwise fail with a bare permission error that reads as though the command
+// itself were missing.
 func checkWorkingDir(dir string, info os.FileInfo, credential *syscall.Credential) error {
 	if credential == nil || canEnter(info, credential) {
 		return nil
