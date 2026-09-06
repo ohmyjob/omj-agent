@@ -22,9 +22,8 @@ const (
 	otherExecute = 0o001
 )
 
-// dropPrivileges makes the child run as the execution user. It does nothing
-// when that is the user the Agent already runs as, so an unprivileged Agent
-// behaves exactly as it did before per-Job users existed.
+// Naming the user the Agent already runs as needs no credential, which is what
+// keeps an unprivileged Agent working.
 func dropPrivileges(cmd *exec.Cmd, executionUser *user.User) error {
 	uid, err := numericID(executionUser.Uid, "uid", executionUser.Username)
 	if err != nil {
@@ -82,9 +81,8 @@ func numericID(value, kind, username string) (uint32, error) {
 	return uint32(id), nil
 }
 
-// checkWorkingDir turns a directory the execution user cannot enter into a
-// sentence naming both, because exec would otherwise fail with a bare
-// permission error that reads as though the command itself were missing.
+// Exec would otherwise fail with a bare permission error that reads as though
+// the command itself were missing, so the sentence names both.
 func checkWorkingDir(dir string, info os.FileInfo, credential *syscall.Credential) error {
 	if credential == nil || canEnter(info, credential) {
 		return nil

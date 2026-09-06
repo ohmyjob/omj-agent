@@ -224,10 +224,9 @@ func (a *Agent) chunker(verified verifiedLease) *output.Chunker {
 	})
 }
 
-// executionUser answers with the user the work must run as, or refuses. A name
-// the operator never allowed is refused rather than quietly downgraded to the
-// service user, because running somebody else's work under the wrong identity
-// is how a Server that is simply wrong becomes dangerous (PRD §21).
+// A name the operator never allowed is refused rather than quietly downgraded
+// to the service user, because running somebody else's work under the wrong
+// identity is how a Server that is simply wrong becomes dangerous (PRD §21).
 func (a *Agent) executionUser(lease protocol.RunLease) (string, error) {
 	name := deref(lease.RunAs)
 	if name == "" || slices.Contains(a.runAsAllowed, name) {
@@ -241,9 +240,8 @@ func (a *Agent) executionUser(lease protocol.RunLease) (string, error) {
 	return "", fmt.Errorf("this machine does not allow work to run as %q; run_as_allowed lists %s", name, strings.Join(a.runAsAllowed, ", "))
 }
 
-// notStarted records why the process never existed. The error text is the
-// whole log of a Run that never started, so it is flushed at once instead of
-// waiting for a tick.
+// The error text is the whole log of a Run that never started, so it is
+// flushed at once instead of waiting for a tick.
 func (a *Agent) notStarted(run *Run, err error) *Run {
 	a.logger.Error("process not started", "run_id", run.Lease.RunID, "job", run.Lease.JobName, "error", err)
 	run.SpawnErr = err
