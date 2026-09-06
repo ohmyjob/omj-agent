@@ -35,6 +35,9 @@ func fixtures() []struct {
 		{"finish-response.json", &FinishResponse{}},
 		{"error-426.json", &ErrorResponse{}},
 		{"error-409-lease-expired.json", &ErrorResponse{}},
+		{"discovery-request.json", &DiscoveryRequest{}},
+		{"discovery-response.json", &DiscoveryResponse{}},
+		{"work-response-discovery-requested.json", &WorkResponse{}},
 	}
 }
 
