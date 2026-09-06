@@ -69,11 +69,16 @@ type Options struct {
 	Buffer   *output.Buffer
 	Reporter Reporter
 	Resender Resender
-	Logger   *slog.Logger
-	Now      func() time.Time
-	Backoff  *client.Backoff
-	Sleep    client.Sleeper
-	Ticker   Ticker
+
+	// Discoverer reads the scheduled work this Machine already has; nil reads
+	// the real one.
+	Discoverer Collector
+
+	Logger  *slog.Logger
+	Now     func() time.Time
+	Backoff *client.Backoff
+	Sleep   client.Sleeper
+	Ticker  Ticker
 
 	// Signals is where stop requests arrive; nil subscribes to StopSignals.
 	// StopBudget is how long Run waits for the reporters after a stop
@@ -86,27 +91,29 @@ type Agent struct {
 	cfg          config.Config
 	runAsAllowed []string
 
-	client   *client.Client
-	info     sysinfo.Info
-	state    *state.Store
-	runner   runner.Runner
-	buffer   *output.Buffer
-	reporter Reporter
-	resender Resender
-	logger   *slog.Logger
-	now      func() time.Time
-	backoff  *client.Backoff
-	sleep    client.Sleeper
-	ticker   Ticker
-	signals  <-chan os.Signal
+	client     *client.Client
+	info       sysinfo.Info
+	state      *state.Store
+	runner     runner.Runner
+	buffer     *output.Buffer
+	reporter   Reporter
+	resender   Resender
+	discoverer Collector
+	logger     *slog.Logger
+	now        func() time.Time
+	backoff    *client.Backoff
+	sleep      client.Sleeper
+	ticker     Ticker
+	signals    <-chan os.Signal
 
 	stopBudget    time.Duration
 	reportCtx     context.Context
 	stopReporting context.CancelFunc
 
-	registry registry
-	rejected rejected
-	runs     sync.WaitGroup
+	registry    registry
+	rejected    rejected
+	discoveries discoveries
+	runs        sync.WaitGroup
 
 	mu       sync.Mutex
 	settings Settings
@@ -125,22 +132,23 @@ func New(opts Options) (*Agent, error) {
 		cfg:          opts.Config,
 		runAsAllowed: opts.RunAsAllowed,
 
-		client:   opts.Client,
-		info:     opts.Info,
-		state:    opts.State,
-		runner:   opts.Runner,
-		buffer:   opts.Buffer,
-		reporter: opts.Reporter,
-		resender: opts.Resender,
-		logger:   opts.Logger,
-		now:      opts.Now,
-		backoff:  opts.Backoff,
-		sleep:    opts.Sleep,
-		ticker:   opts.Ticker,
-		signals:  opts.Signals,
-		registry: newRegistry(),
-		rejected: newRejected(),
-		settings: DefaultSettings,
+		client:     opts.Client,
+		info:       opts.Info,
+		state:      opts.State,
+		runner:     opts.Runner,
+		buffer:     opts.Buffer,
+		reporter:   opts.Reporter,
+		resender:   opts.Resender,
+		discoverer: opts.Discoverer,
+		logger:     opts.Logger,
+		now:        opts.Now,
+		backoff:    opts.Backoff,
+		sleep:      opts.Sleep,
+		ticker:     opts.Ticker,
+		signals:    opts.Signals,
+		registry:   newRegistry(),
+		rejected:   newRejected(),
+		settings:   DefaultSettings,
 
 		stopBudget: opts.StopBudget,
 	}
@@ -231,6 +239,7 @@ func (a *Agent) poll(ctx context.Context) {
 
 		a.backoff.Reset()
 		a.apply(response.Config)
+		a.discoverIfAsked(ctx, response.DiscoveryRequested)
 		a.cancel(response.CancelRunIDs)
 
 		cancelled := make(map[string]bool, len(response.CancelRunIDs))
@@ -246,9 +255,11 @@ func (a *Agent) poll(ctx context.Context) {
 	a.logger.Info("agent loop stopped")
 }
 
-// Wait blocks until every Run handed to the reporter has been released.
+// Wait blocks until every Run handed to the reporter has been released, and
+// until a discovery in flight has finished with the Server.
 func (a *Agent) Wait() {
 	a.runs.Wait()
+	a.discoveries.wg.Wait()
 }
 
 // Settings is what the last work response asked for, or the defaults.

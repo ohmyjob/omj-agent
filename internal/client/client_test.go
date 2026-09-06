@@ -144,6 +144,11 @@ func calls() []call {
 
 			return err
 		})},
+		{name: "discovery", fixture: "discovery-response.json", method: http.MethodPost, path: "/discovery", authenticated: true, do: ctxDo(func(ctx context.Context, c *Client) error {
+			_, err := c.Discovery(ctx, protocol.DiscoveryRequest{Entries: []protocol.DiscoveredEntry{}, UnreadableSources: []protocol.UnreadableSource{}})
+
+			return err
+		})},
 		{name: "start", fixture: "start-response.json", method: http.MethodPost, path: "/runs/" + runID + "/start", authenticated: true, do: ctxDo(func(ctx context.Context, c *Client) error {
 			_, err := c.StartRun(ctx, runID, protocol.StartRequest{})
 
@@ -234,6 +239,19 @@ func TestRequestBodiesMatchTheFixtures(t *testing.T) {
 
 		if got, want := asMap(t, rec.body), asMap(t, fixture(t, "work-request.json")); !reflect.DeepEqual(got, want) {
 			t.Errorf("work body = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("discovery", func(t *testing.T) {
+		rec, c := newServer(t, http.StatusOK, fixture(t, "discovery-response.json"), nil)
+
+		_, err := c.Discovery(context.Background(), decodeFixture[protocol.DiscoveryRequest](t, "discovery-request.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if got, want := asMap(t, rec.body), asMap(t, fixture(t, "discovery-request.json")); !reflect.DeepEqual(got, want) {
+			t.Errorf("discovery body = %v, want %v", got, want)
 		}
 	})
 

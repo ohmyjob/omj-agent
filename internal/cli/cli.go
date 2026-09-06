@@ -25,6 +25,7 @@ func commands() []command {
 		{name: "status", summary: "Show the configuration, machine id and server reachability", run: runStatus},
 		{name: "version", summary: "Print the agent and protocol versions", run: runVersion},
 		{name: "doctor", summary: "Check the installation and exit 1 on any problem", run: runDoctor},
+		{name: "discover", summary: "Print the scheduled work this machine already has, and send nothing", run: runDiscover},
 	}
 }
 
