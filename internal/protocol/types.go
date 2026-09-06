@@ -59,13 +59,19 @@ type WorkResponse struct {
 }
 
 type RunLease struct {
-	RunID            string            `json:"run_id"`
-	MachineID        string            `json:"machine_id"`
-	JobID            string            `json:"job_id"`
-	JobName          string            `json:"job_name"`
-	Trigger          Trigger           `json:"trigger"`
-	ScheduledFor     *time.Time        `json:"scheduled_for"`
-	Command          string            `json:"command"`
+	RunID        string     `json:"run_id"`
+	MachineID    string     `json:"machine_id"`
+	JobID        string     `json:"job_id"`
+	JobName      string     `json:"job_name"`
+	Trigger      Trigger    `json:"trigger"`
+	ScheduledFor *time.Time `json:"scheduled_for"`
+	Command      string     `json:"command"`
+
+	// RunAs names the user the work must run as, and null means the Agent's
+	// own service user. The Agent only ever honours a name the operator put in
+	// run_as_allowed, so this narrows what the Server may pick and can never
+	// widen it (PRD §21).
+	RunAs            *string           `json:"run_as"`
 	Shell            *string           `json:"shell"`
 	WorkingDirectory *string           `json:"working_directory"`
 	Environment      map[string]string `json:"environment"`

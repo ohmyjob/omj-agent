@@ -8,6 +8,7 @@
             "trigger": "scheduled",
             "scheduled_for": "2026-09-04T02:00:00.000000Z",
             "command": "/home/ian/backup.sh",
+            "run_as": null,
             "shell": null,
             "working_directory": null,
             "environment": {
