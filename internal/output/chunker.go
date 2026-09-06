@@ -142,8 +142,8 @@ func (c *Chunker) Write(stream runner.Stream, data []byte) {
 	}
 }
 
-// Close flushes what is still pending and returns the last sequence number
-// and whether the local cap cut the output, which the finish report carries.
+// Close flushes what is still pending; the finish report carries the values
+// it returns.
 func (c *Chunker) Close() (lastSeq uint64, truncated bool) {
 	c.closeOnce.Do(func() {
 		close(c.stop)

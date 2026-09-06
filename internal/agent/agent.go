@@ -50,8 +50,6 @@ type Reporter interface {
 	Report(ctx context.Context, run *Run)
 }
 
-// Resender answers a lease whose run id already has a stored outcome by
-// sending that outcome again.
 type Resender interface {
 	Resend(ctx context.Context, lease protocol.RunLease, outcome state.RecentRun) error
 }
@@ -308,9 +306,8 @@ func (a *Agent) delayAfter(err error) time.Duration {
 	}
 }
 
-// apply takes the intervals the Server asks for. It reaches settings and
-// nothing else: the execution-user allowlist is not part of AgentConfig and
-// has no setter here or anywhere.
+// apply reaches settings and nothing else: the execution-user allowlist is
+// not part of AgentConfig and has no setter here or anywhere.
 func (a *Agent) apply(received protocol.AgentConfig) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -332,9 +329,8 @@ func (a *Agent) apply(received protocol.AgentConfig) {
 	}
 }
 
-// cancel stops the processes the Server asked for. It keeps listing a Run
-// until its finish is accepted, so acting once keeps the log honest and the
-// dying process untouched.
+// The Server keeps listing a Run until its finish is accepted, so cancelling
+// once keeps the log honest and the dying process untouched.
 func (a *Agent) cancel(ids []string) {
 	for _, id := range ids {
 		run, ok := a.registry.get(id)

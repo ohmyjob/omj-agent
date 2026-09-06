@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// testUsers is a small local user database: root, the service user the agent
-// runs as, and two users an operator might allow.
 var testUsers = map[string]int{"root": 0, "ohmyjob": 998, "deploy": 1001, "www-data": 33}
 
 func testLookup(name string) (int, error) {

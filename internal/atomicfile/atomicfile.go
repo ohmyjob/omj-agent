@@ -1,4 +1,5 @@
-// Package atomicfile replaces files so that a crash never leaves a partial one behind.
+// Package atomicfile replaces a file through a synced temporary sibling and a
+// rename, so a crash never leaves a partial one behind.
 package atomicfile
 
 import (
@@ -8,7 +9,6 @@ import (
 	"path/filepath"
 )
 
-// Writer uses fsync and a sibling-file rename so crashes cannot leave partial data.
 type Writer struct {
 	Rename func(oldpath, newpath string) error
 }

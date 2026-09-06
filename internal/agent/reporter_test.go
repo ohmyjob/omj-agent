@@ -85,8 +85,8 @@ func TestOutputIsDeliveredOnceInOrderAfterAnOutage(t *testing.T) {
 		t.Fatalf("sequence numbers = %v, want 1 to 4 once each", seqs)
 	}
 
-	// Five failures cost 1 s, 2 s, 4 s, 8 s and 16 s: about thirty seconds
-	// of outage before the first batch got through.
+	// The five failures add up to about thirty seconds of outage before the
+	// first batch got through.
 	want := []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second}
 	if got := h.sleeper.recorded(); len(got) != len(want) || got[0] != want[0] || got[4] != want[4] {
 		t.Fatalf("sleeps = %v, want %v", got, want)

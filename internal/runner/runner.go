@@ -35,8 +35,8 @@ const (
 	waitDelay = 2 * time.Second
 )
 
-// Sink receives output as it arrives. The bytes are only valid during the
-// call because the copying goroutines reuse their buffer.
+// The bytes handed to Write are only valid during the call because the
+// copying goroutines reuse their buffer.
 type Sink interface {
 	Write(stream Stream, data []byte)
 }

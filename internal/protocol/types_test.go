@@ -156,9 +156,6 @@ func TestUnknownFieldsAreTolerated(t *testing.T) {
 	}
 }
 
-// TestRunAsAllowedIsRequestOnly holds the direction of the execution-user
-// allowlist in the wire format itself (PRD §21): it is on what the Agent
-// sends and on nothing it receives, so no answer can widen it.
 func TestRunAsAllowedIsRequestOnly(t *testing.T) {
 	for _, request := range []any{EnrollRequest{}, WorkRequest{}} {
 		if !carries(reflect.TypeOf(request), "run_as_allowed") {

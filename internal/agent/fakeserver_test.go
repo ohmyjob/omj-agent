@@ -16,8 +16,7 @@ import (
 
 // fakeServer speaks the agent protocol from memory: leases are queued one
 // batch per work call, cancellations are delivered on the next work call,
-// failures are queued per endpoint, and every request is recorded. Tasks 012
-// and 013 reuse it for the reporter and shutdown scenarios.
+// failures are queued per endpoint, and every request is recorded.
 type fakeServer struct {
 	server    *httptest.Server
 	MachineID string

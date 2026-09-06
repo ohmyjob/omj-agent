@@ -120,8 +120,8 @@ type systemctl struct {
 
 type noSystemctl struct{}
 
-// DefaultSystemctl shells out to systemctl when it is on the PATH and reports
-// systemd as absent otherwise, so macOS and containers get a plain answer.
+// macOS and containers have no systemd, so a missing systemctl is a plain
+// answer rather than an error.
 func DefaultSystemctl() Systemctl {
 	path, err := exec.LookPath("systemctl")
 	if err != nil {

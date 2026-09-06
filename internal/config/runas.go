@@ -9,33 +9,28 @@ import "fmt"
 
 const rootUID = 0
 
-// RunAsHost is what checking the allowlist needs to know about this machine.
-// Lookup answers with the numeric uid, because root is recognised by uid
-// rather than by whichever name it was given; a nil Lookup reads the local
-// user database.
+// Lookup answers with the numeric uid; a nil Lookup reads the local user
+// database.
 type RunAsHost struct {
 	UID      int
 	Username string
 	Lookup   func(name string) (uid int, err error)
 }
 
-// RunAsUser is one entry of the allowlist after it was checked. Err says why
-// the Agent could not run work as that user; UID is meaningful only when Err
-// is nil.
+// Err says why the Agent could not run work as that user; UID is meaningful
+// only when Err is nil.
 type RunAsUser struct {
 	Name string
 	UID  int
 	Err  error
 }
 
-// RunAs is the list of users this Agent may run work as.
 type RunAs struct {
 	Users []RunAsUser
 }
 
-// ResolveRunAs checks run_as_allowed against this machine. The Agent's own
-// user leads the list because it is always permitted: it is what an Agent
-// without an allowlist runs everything as.
+// The Agent's own user leads the list because it is always permitted: it is
+// what an Agent without an allowlist runs everything as.
 func ResolveRunAs(cfg Config, host RunAsHost) RunAs {
 	var resolved RunAs
 
@@ -54,9 +49,9 @@ func ResolveRunAs(cfg Config, host RunAsHost) RunAs {
 	return resolved
 }
 
-// Err is the first user the Agent could not run work as. Startup stops there:
-// an allowlist the Agent cannot honour promises the Server something untrue,
-// which is worse than having no allowlist at all.
+// Startup stops at the first user the Agent cannot run work as: an allowlist it
+// cannot honour promises the Server something untrue, which is worse than
+// having no allowlist at all.
 func (r RunAs) Err() error {
 	for _, allowed := range r.Users {
 		if allowed.Err != nil {
@@ -67,9 +62,8 @@ func (r RunAs) Err() error {
 	return nil
 }
 
-// Names is what the Server is told. It is nil rather than empty when this
-// machine knows no user at all, so the metadata field is left out instead of
-// being sent as an empty list.
+// Names is nil rather than empty when this machine knows no user at all, so
+// the metadata field is left out instead of being sent as an empty list.
 func (r RunAs) Names() []string {
 	var names []string
 

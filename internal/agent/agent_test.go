@@ -621,9 +621,8 @@ func TestTheExecutionUserAllowlistIsReported(t *testing.T) {
 	}
 }
 
-// TestNoServerAnswerChangesTheAllowlist covers the rule the whole feature
-// rests on (PRD §21): the list is the operator's, so a Server that answers
-// with one of its own changes nothing.
+// PRD §21: the allowlist is the operator's, and nothing the Server answers
+// may change it.
 func TestNoServerAnswerChangesTheAllowlist(t *testing.T) {
 	h := newHarness(t, harnessOptions{stopAfter: 3, runAsAllowed: []string{"ohmyjob"}})
 

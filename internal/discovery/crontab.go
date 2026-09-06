@@ -21,10 +21,8 @@ const (
 
 const crontabSourcePrefix = "crontab:"
 
-// cronNicknames are the shorthands cron accepts in place of five fields.
 var cronNicknames = []string{"@reboot", "@yearly", "@annually", "@monthly", "@weekly", "@daily", "@midnight", "@hourly"}
 
-// cronField is one of cron's five schedule fields, with the values it accepts.
 type cronField struct {
 	name     string
 	min, max int
@@ -84,8 +82,7 @@ func (c *collection) readUserCrontabs() {
 	}
 }
 
-// readDirectory lists the files of a directory, in the sorted order os.ReadDir
-// gives, and skips subdirectories.
+// readDirectory lists a directory's files in the sorted order os.ReadDir gives.
 func (c *collection) readDirectory(source, dir string) []string {
 	listing, err := os.ReadDir(dir)
 	if err != nil {
@@ -233,9 +230,8 @@ func unquoteCronValue(value string) string {
 	return value
 }
 
-// cronSchedule reads the schedule at the start of a line and returns the rest
-// of it. The schedule is the fields as written, separated by single spaces, so
-// a tab-separated line and a space-separated one read the same.
+// The schedule is returned as its fields were written, separated by single
+// spaces, so a tab-separated line and a space-separated one read the same.
 func cronSchedule(text string) (schedule, rest string, err error) {
 	if strings.HasPrefix(text, "@") {
 		nickname, rest := cutField(text)
@@ -267,8 +263,6 @@ func cronSchedule(text string) (schedule, rest string, err error) {
 	return strings.Join(fields, " "), rest, nil
 }
 
-// cutField takes the next whitespace-separated field and returns the rest of
-// the line with its leading whitespace removed.
 func cutField(text string) (field, rest string) {
 	text = strings.TrimLeft(text, " \t")
 

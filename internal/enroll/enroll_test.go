@@ -206,10 +206,9 @@ func assertMode(t *testing.T, path string, want os.FileMode) {
 	}
 }
 
-// TestEnrollReportsTheExecutionUserAllowlist covers the first half of the
-// list's one-way trip: what agent.conf allows is what the Server is told, and
-// a list this machine could not honour stops enrollment before the token is
-// spent.
+// The allowlist travels one way: what agent.conf allows is what the Server is
+// told, and one this machine could not honour stops enrollment before the token
+// is spent.
 func TestEnrollReportsTheExecutionUserAllowlist(t *testing.T) {
 	tests := []struct {
 		name     string

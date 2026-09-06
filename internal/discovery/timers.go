@@ -11,9 +11,9 @@ import (
 
 const timerSourcePrefix = "systemd:"
 
-// Systemctl answers questions about systemd. Both methods only read: nothing
-// in this interface can start, stop, enable or edit a unit, which is how the
-// package stays read-only even though it runs a program.
+// Systemctl answers questions about systemd. Nothing in this interface can
+// start, stop, enable or edit a unit, which is how the package stays read-only
+// even though it runs a program.
 type Systemctl interface {
 	Available() bool
 	ListTimers(ctx context.Context) (string, error)
@@ -186,8 +186,8 @@ func (c *collection) readTimer(ctx context.Context, timer, activates, row string
 	return nil
 }
 
-// unitCommand reads the command and the user of the unit a timer triggers.
-// The reason it could not is a note on the entry, not a dropped entry.
+// The reason a unit could not be read becomes a note on the entry rather than
+// a dropped entry.
 func (c *collection) unitCommand(ctx context.Context, unit string) (command, user, note string, err error) {
 	if unit == "" {
 		return "", "", "this timer triggers no unit, so it has no command", nil

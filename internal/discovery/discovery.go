@@ -1,12 +1,10 @@
 // Package discovery reads the scheduled work a Machine already has — crontabs
 // and systemd timers — and reports it as written.
 //
-// The package is read-only by construction. It reaches the filesystem through
-// os.ReadFile and os.ReadDir and nothing else, and it reaches systemd through
-// the Systemctl interface, whose only two methods are queries: there is no way
-// to ask this package to start a unit, and no call in it that opens a path for
-// writing. TestPackageOnlyReads reads this package's own source and fails if
-// that ever stops being true.
+// The package is read-only by construction: it reaches the filesystem through
+// os.ReadFile and os.ReadDir alone, and systemd through the Systemctl
+// interface, which can only query. TestPackageOnlyReads reads this package's
+// own source and fails if that ever stops being true.
 package discovery
 
 import (
@@ -78,7 +76,6 @@ type Result struct {
 	OmittedEntries int
 }
 
-// Paths names where cron keeps its files.
 type Paths struct {
 	SystemCrontab string
 	CronDir       string
@@ -164,7 +161,6 @@ func agentPath() string {
 	return path
 }
 
-// collection accumulates one discovery under the collector's bounds.
 type collection struct {
 	collector  Collector
 	entries    []Entry
@@ -205,14 +201,10 @@ func (c *collection) add(e Entry) {
 	c.entries = append(c.entries, e)
 }
 
-// full reports that nothing more will be kept, so a source that costs work to
-// read can be counted instead of read.
 func (c *collection) full() bool {
 	return c.spent || len(c.entries) >= c.collector.MaxEntries
 }
 
-// unreadableSource records a source that is there but unreadable. A path that
-// is simply absent is not a failure and only reaches the debug log.
 func (c *collection) unreadableSource(source string, err error) {
 	if errors.Is(err, os.ErrNotExist) {
 		c.collector.Logger.Debug("scheduled work source is absent", "source", source, "error", err)

@@ -62,7 +62,6 @@ func (a *Agent) cancelAll() {
 	}
 }
 
-// notify subscribes to the stop signals unless a channel was injected.
 func (a *Agent) notify() (<-chan os.Signal, func()) {
 	if a.signals != nil {
 		return a.signals, func() {}

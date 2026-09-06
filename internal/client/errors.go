@@ -107,7 +107,6 @@ func IsRetryable(err error) bool {
 	return errors.As(err, &netErr) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF)
 }
 
-// RetryAfter returns how long the Server asked the Agent to wait, or zero.
 func RetryAfter(err error) time.Duration {
 	if apiErr, ok := asAPIError(err); ok {
 		return apiErr.RetryAfter

@@ -95,9 +95,8 @@ func (c Config) Validate() error {
 	return c.validateRunAsAllowed()
 }
 
-// validateRunAsAllowed covers what the file alone can be wrong about. Whether
-// a user exists, and whether this Agent could ever become it, needs the
-// machine and is ResolveRunAs.
+// The file alone cannot say whether a user exists or whether this Agent could
+// ever become it; that needs the machine and is ResolveRunAs.
 func (c Config) validateRunAsAllowed() error {
 	seen := make(map[string]bool, len(c.RunAsAllowed))
 

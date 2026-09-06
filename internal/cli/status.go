@@ -130,8 +130,6 @@ func signed(d time.Duration) string {
 	return "+" + d.String()
 }
 
-// parseNoFlags reports whether the command is already finished (help shown
-// or bad input) and the exit code to use in that case.
 func parseNoFlags(name string, args []string, stderr io.Writer) (stop bool, code int) {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.SetOutput(stderr)

@@ -123,8 +123,8 @@ func healthyHost(t *testing.T) Host {
 	}
 }
 
-// allow writes an execution-user allowlist and answers lookups from a small
-// local user database, so the check never depends on who is running the tests.
+// Lookups answer from a fixed user database so the check never depends on who
+// is running the tests.
 func allow(t *testing.T, host *Host, users ...string) {
 	t.Helper()
 
