@@ -28,6 +28,7 @@ a commit message from before that point means a v1 task, not one of these.
 | 002 | Report a discovery          | Import    |
 | 003 | Execution user allowlist    | Execution |
 | 004 | Run as a permitted user     | Execution |
+| 005 | Keep the reason a Run ended | Execution |
 
 001 and 002 are read-only by design: the Agent reports what a Machine
 already schedules and never edits it. 003 and 004 add the rule that the
@@ -35,4 +36,5 @@ operator decides which users may run work and the Server may only choose
 from that list (PRD §21, §37).
 
 Both pairs have a Server counterpart: 002 needs Server 010, and 004 needs
-Server 012.
+Server 012. 005 follows 004 and needs nothing from the Server — it keeps the
+reason 004 introduced from being thrown away by a restart.
