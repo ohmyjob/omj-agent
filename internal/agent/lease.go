@@ -28,6 +28,7 @@ type Run struct {
 	Process              *runner.Process
 	Chunker              *output.Chunker
 	SpawnErr             error
+	SpawnReason          protocol.FinishReason
 	CancelledBeforeStart bool
 
 	cancelOnce sync.Once
@@ -181,7 +182,7 @@ func (a *Agent) spawn(ctx context.Context, verified verifiedLease) *Run {
 
 	runAs, err := a.executionUser(lease)
 	if err != nil {
-		return a.notStarted(run, err)
+		return a.notStarted(run, protocol.ReasonRunAsNotPermitted, err)
 	}
 
 	spec := runner.Spec{
@@ -199,7 +200,7 @@ func (a *Agent) spawn(ctx context.Context, verified verifiedLease) *Run {
 
 	process, err := a.runner.Start(ctx, spec, run.Chunker)
 	if err != nil {
-		return a.notStarted(run, err)
+		return a.notStarted(run, protocol.ReasonSpawnFailed, err)
 	}
 
 	run.Process = process
@@ -241,10 +242,12 @@ func (a *Agent) executionUser(lease protocol.RunLease) (string, error) {
 }
 
 // The error text is the whole log of a Run that never started, so it is
-// flushed at once instead of waiting for a tick.
-func (a *Agent) notStarted(run *Run, err error) *Run {
-	a.logger.Error("process not started", "run_id", run.Lease.RunID, "job", run.Lease.JobName, "error", err)
+// flushed at once instead of waiting for a tick. The reason travels with it
+// because the operator reads a refused identity and a failed exec differently.
+func (a *Agent) notStarted(run *Run, reason protocol.FinishReason, err error) *Run {
+	a.logger.Error("process not started", "run_id", run.Lease.RunID, "job", run.Lease.JobName, "reason", reason, "error", err)
 	run.SpawnErr = err
+	run.SpawnReason = reason
 	run.Chunker.Write(runner.Stderr, []byte(err.Error()+"\n"))
 	run.Chunker.Close()
 

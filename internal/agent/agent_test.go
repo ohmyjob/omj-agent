@@ -1008,24 +1008,64 @@ func TestALeaseNamingAUserTheMachineDoesNotAllowIsRefused(t *testing.T) {
 
 // A refusal must reach the Server as an outcome rather than as silence, so the
 // operator sees a Run that failed and why, not one that never happened.
+// A Run that never started reaches the Server as one of two different things:
+// an identity this Machine refuses, which means the Server's copy of the
+// allowlist has drifted, and a command that would not start, which does not.
 func TestARefusedLeaseIsFinishedWithAReason(t *testing.T) {
-	h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: []string{"deploy"}})
-
-	runAs := "root"
-	lease := h.lease(runA, "true")
-	lease.RunAs = &runAs
-	h.server.Enqueue(lease)
-
-	h.run(t)
-
-	finishes := h.server.Finishes()
-	if len(finishes) != 1 {
-		t.Fatalf("finishes = %d, want 1", len(finishes))
+	current, err := user.Current()
+	if err != nil {
+		t.Fatalf("current user: %v", err)
 	}
 
-	request := finishes[0].Request
-	if request.Status != protocol.RunStatusFailed || request.Reason == nil || *request.Reason != protocol.ReasonSpawnFailed {
-		t.Fatalf("finish = %+v, want failed with reason spawn_failed", request)
+	missingDir := "/nonexistent/omj-agent"
+
+	tests := []struct {
+		name       string
+		runAs      *string
+		workingDir *string
+		want       protocol.FinishReason
+	}{
+		{
+			name:  "a user this machine does not allow",
+			runAs: ptr("root"),
+			want:  protocol.ReasonRunAsNotPermitted,
+		},
+		{
+			// The identity is accepted and needs no privilege change, so the
+			// only thing left to fail is the exec itself.
+			name:       "an allowed user whose command will not start",
+			runAs:      &current.Username,
+			workingDir: &missingDir,
+			want:       protocol.ReasonSpawnFailed,
+		},
+		{
+			name:       "no user at all and a command that will not start",
+			workingDir: &missingDir,
+			want:       protocol.ReasonSpawnFailed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, harnessOptions{stopAfter: 2, runAsAllowed: []string{current.Username}})
+
+			lease := h.lease(runA, "true")
+			lease.RunAs = tt.runAs
+			lease.WorkingDirectory = tt.workingDir
+			h.server.Enqueue(lease)
+
+			h.run(t)
+
+			finishes := h.server.Finishes()
+			if len(finishes) != 1 {
+				t.Fatalf("finishes = %d, want 1", len(finishes))
+			}
+
+			request := finishes[0].Request
+			if request.Status != protocol.RunStatusFailed || request.Reason == nil || *request.Reason != tt.want {
+				t.Fatalf("finish = %+v, want failed with reason %s", request, tt.want)
+			}
+		})
 	}
 }
 

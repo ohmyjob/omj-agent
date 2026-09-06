@@ -60,11 +60,16 @@ const (
 	ReasonSpawnFailed    FinishReason = "spawn_failed"
 	ReasonAgentStopped   FinishReason = "agent_stopped"
 	ReasonAgentRestarted FinishReason = "agent_restarted"
+
+	// The Server validates run_as against the list this Agent reported, so a
+	// lease it still refuses means the two have drifted apart rather than that
+	// a command failed to start (PRD §21).
+	ReasonRunAsNotPermitted FinishReason = "run_as_not_permitted"
 )
 
 func (r FinishReason) Valid() bool {
 	switch r {
-	case ReasonSpawnFailed, ReasonAgentStopped, ReasonAgentRestarted:
+	case ReasonSpawnFailed, ReasonAgentStopped, ReasonAgentRestarted, ReasonRunAsNotPermitted:
 		return true
 	}
 
