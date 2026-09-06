@@ -165,9 +165,6 @@ func (r Runner) Start(ctx context.Context, spec Spec, sink Sink) (*Process, erro
 	return p, nil
 }
 
-// The execution user owns the process, the environment it is given and the
-// working directory it is checked against; an empty name is the user the Agent
-// itself runs as, which is every Run until a lease names somebody else.
 func lookupUser(name string) (*user.User, error) {
 	if name == "" {
 		current, err := user.Current()
