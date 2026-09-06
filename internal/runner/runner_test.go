@@ -153,6 +153,7 @@ func TestStartBuildsTheEnvironmentFromScratch(t *testing.T) {
 		"HOME":           serviceUser.HomeDir,
 		"USER":           serviceUser.Username,
 		"LOGNAME":        serviceUser.Username,
+		"SHELL":          defaultShell,
 		"PATH":           defaultPath,
 		"LANG":           "en_US.UTF-8",
 		"OMJ_RUN_ID":     "run-1",
@@ -178,16 +179,18 @@ func TestStartBuildsTheEnvironmentFromScratch(t *testing.T) {
 }
 
 func TestEnvironment(t *testing.T) {
-	serviceUser := &user.User{Username: "ohmyjob", HomeDir: "/var/lib/ohmyjob"}
+	executionUser := &user.User{Username: "ohmyjob", HomeDir: "/var/lib/ohmyjob"}
 
 	tests := []struct {
-		name string
-		spec Spec
-		want []string
+		name  string
+		spec  Spec
+		shell string
+		want  []string
 	}{
 		{
-			name: "defaults",
-			spec: Spec{RunID: "run-1", JobName: "Nightly backup", MachineID: "machine-1"},
+			name:  "defaults",
+			spec:  Spec{RunID: "run-1", JobName: "Nightly backup", MachineID: "machine-1"},
+			shell: defaultShell,
 			want: []string{
 				"HOME=/var/lib/ohmyjob",
 				"LANG=C.UTF-8",
@@ -196,12 +199,14 @@ func TestEnvironment(t *testing.T) {
 				"OMJ_MACHINE_ID=machine-1",
 				"OMJ_RUN_ID=run-1",
 				"PATH=" + defaultPath,
+				"SHELL=" + defaultShell,
 				"USER=ohmyjob",
 			},
 		},
 		{
-			name: "the Job's variables override any default",
-			spec: Spec{RunID: "run-1", Env: map[string]string{"PATH": "/opt/bin", "TZ": "UTC"}},
+			name:  "the Job's variables override any default",
+			spec:  Spec{RunID: "run-1", Env: map[string]string{"PATH": "/opt/bin", "TZ": "UTC"}},
+			shell: "/bin/bash",
 			want: []string{
 				"HOME=/var/lib/ohmyjob",
 				"LANG=C.UTF-8",
@@ -210,6 +215,7 @@ func TestEnvironment(t *testing.T) {
 				"OMJ_MACHINE_ID=",
 				"OMJ_RUN_ID=run-1",
 				"PATH=/opt/bin",
+				"SHELL=/bin/bash",
 				"TZ=UTC",
 				"USER=ohmyjob",
 			},
@@ -218,7 +224,7 @@ func TestEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := environment(tt.spec, serviceUser); !slices.Equal(got, tt.want) {
+			if got := environment(tt.spec, executionUser, tt.shell); !slices.Equal(got, tt.want) {
 				t.Errorf("environment = %q, want %q", got, tt.want)
 			}
 		})
@@ -236,7 +242,7 @@ func TestStartWorkingDirectory(t *testing.T) {
 		dir  string
 		want string
 	}{
-		{name: "defaults to the service user's home", dir: "", want: serviceUser.HomeDir},
+		{name: "defaults to the execution user's home", dir: "", want: serviceUser.HomeDir},
 		{name: "uses the directory given", dir: t.TempDir(), want: ""},
 	}
 

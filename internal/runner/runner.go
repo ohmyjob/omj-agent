@@ -42,10 +42,15 @@ type Sink interface {
 }
 
 type Spec struct {
-	RunID      string
-	JobName    string
-	MachineID  string
-	Command    string
+	RunID     string
+	JobName   string
+	MachineID string
+	Command   string
+
+	// RunAs is the user the work must run as; empty means the user the Agent
+	// itself runs as. The caller has already checked it against the local
+	// allowlist, so the runner only has to honour it (PRD §21).
+	RunAs      string
 	Shell      string
 	WorkingDir string
 	Env        map[string]string
@@ -101,17 +106,18 @@ func (r Runner) Start(ctx context.Context, spec Spec, sink Sink) (*Process, erro
 		return nil, errors.New("command is required")
 	}
 
-	serviceUser, err := user.Current()
+	executionUser, err := lookupUser(spec.RunAs)
 	if err != nil {
-		return nil, fmt.Errorf("look up the service user: %w", err)
+		return nil, err
 	}
 
 	dir := spec.WorkingDir
 	if dir == "" {
-		dir = serviceUser.HomeDir
+		dir = executionUser.HomeDir
 	}
 
-	if _, err := os.Stat(dir); err != nil {
+	info, err := os.Stat(dir)
+	if err != nil {
 		return nil, fmt.Errorf("working directory %q: %w", dir, err)
 	}
 
@@ -122,11 +128,19 @@ func (r Runner) Start(ctx context.Context, spec Spec, sink Sink) (*Process, erro
 
 	cmd := exec.Command(shell, "-c", spec.Command)
 	cmd.Dir = dir
-	cmd.Env = environment(spec, serviceUser)
+	cmd.Env = environment(spec, executionUser, shell)
 	cmd.Stdout = streamWriter{sink: sink, stream: Stdout}
 	cmd.Stderr = streamWriter{sink: sink, stream: Stderr}
 	cmd.WaitDelay = waitDelay
 	configureProcess(cmd)
+
+	if err := dropPrivileges(cmd, executionUser); err != nil {
+		return nil, err
+	}
+
+	if err := checkWorkingDir(dir, info, cmd.SysProcAttr.Credential); err != nil {
+		return nil, err
+	}
 
 	startedAt := time.Now()
 
@@ -149,6 +163,27 @@ func (r Runner) Start(ctx context.Context, spec Spec, sink Sink) (*Process, erro
 	go p.wait()
 
 	return p, nil
+}
+
+// The execution user owns the process, the environment it is given and the
+// working directory it is checked against; an empty name is the user the Agent
+// itself runs as, which is every Run until a lease names somebody else.
+func lookupUser(name string) (*user.User, error) {
+	if name == "" {
+		current, err := user.Current()
+		if err != nil {
+			return nil, fmt.Errorf("look up the service user: %w", err)
+		}
+
+		return current, nil
+	}
+
+	target, err := user.Lookup(name)
+	if err != nil {
+		return nil, fmt.Errorf("look up the execution user %s: %w", name, err)
+	}
+
+	return target, nil
 }
 
 func (r Runner) timeout(requested time.Duration) time.Duration {
