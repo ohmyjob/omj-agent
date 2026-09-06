@@ -57,6 +57,12 @@ func TestStaleActiveRunIsReportedAsLostWithoutBlockingPolling(t *testing.T) {
 		t.Fatalf("recent outcome = %+v, %v; want lost with the start time", outcome, ok)
 	}
 
+	// Stored rather than re-derived on the way out, so a second restart before
+	// the Server accepts this still answers agent_restarted.
+	if outcome.Reason == nil || *outcome.Reason != protocol.ReasonAgentRestarted {
+		t.Fatalf("recent outcome reason = %v, want agent_restarted", outcome.Reason)
+	}
+
 	if h.logs.count("reporting it as lost") != 1 || h.logs.count("lost run reported") != 1 {
 		t.Fatal("the reconciliation was not logged")
 	}

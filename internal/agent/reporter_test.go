@@ -278,6 +278,61 @@ func TestStoredOutcomeIsResent(t *testing.T) {
 	}
 }
 
+// A reason that does not survive the state file turns a Run nobody was allowed
+// to start into an ordinary failure, which is the one thing it is not.
+func TestTheStoredReasonIsResent(t *testing.T) {
+	tests := []struct {
+		name   string
+		status protocol.RunStatus
+		stored *protocol.FinishReason
+	}{
+		{"a refused execution user", protocol.RunStatusFailed, reasonPtr(protocol.ReasonRunAsNotPermitted)},
+		{"a command that never started", protocol.RunStatusFailed, reasonPtr(protocol.ReasonSpawnFailed)},
+		{"a run the agent gave up on", protocol.RunStatusLost, reasonPtr(protocol.ReasonAgentRestarted)},
+		{"an ending that explains itself", protocol.RunStatusSuccess, nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newHarness(t, harnessOptions{realResender: true, before: func(h *harness) {
+				if err := h.store.MarkFinished(runA, state.Outcome{Status: string(tt.status), Reason: tt.stored}); err != nil {
+					t.Fatal(err)
+				}
+			}})
+
+			wait := startReporting(t, h, h.lease(runA, "true"))
+			wait()
+
+			finishes := h.server.Finishes()
+			if len(finishes) != 1 {
+				t.Fatalf("finishes = %d, want the stored outcome once", len(finishes))
+			}
+
+			sent := finishes[0].Request
+			if sent.Status != tt.status {
+				t.Fatalf("status = %q, want %q", sent.Status, tt.status)
+			}
+
+			switch {
+			case tt.stored == nil && sent.Reason != nil:
+				t.Fatalf("reason = %q, want none", *sent.Reason)
+			case tt.stored != nil && sent.Reason == nil:
+				t.Fatalf("reason = none, want %q", *tt.stored)
+			case tt.stored != nil && *sent.Reason != *tt.stored:
+				t.Fatalf("reason = %q, want %q", *sent.Reason, *tt.stored)
+			}
+
+			if starts := h.server.Starts(); len(starts) != 0 {
+				t.Fatalf("starts = %v, want none", starts)
+			}
+		})
+	}
+}
+
+func reasonPtr(reason protocol.FinishReason) *protocol.FinishReason {
+	return &reason
+}
+
 func TestResendTreatsAConflictAsDelivered(t *testing.T) {
 	h := newHarness(t, harnessOptions{realResender: true, before: func(h *harness) {
 		if err := h.store.MarkFinished(runA, state.Outcome{Status: string(protocol.RunStatusLost)}); err != nil {

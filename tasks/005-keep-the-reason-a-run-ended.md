@@ -1,6 +1,6 @@
 # 005 · Keep the reason a Run ended
 
-Status: todo
+Status: done
 Repo: ohmyjob-agent
 Depends on: 004
 PRD: §16.6, §21
@@ -71,12 +71,15 @@ is already correct.
 
 ## Acceptance criteria
 
-- [ ] A Run refused for its execution user, resent after a restart, still
-      reaches the Server as `run_as_not_permitted`.
-- [ ] A Run whose command could not start still resends as `spawn_failed`.
-- [ ] A Run the Agent gave up on at startup still resends as
-      `agent_restarted`.
-- [ ] A state file written before this change loads without error.
+- [x] A Run refused for its execution user, resent after a restart, still
+      reaches the Server as `run_as_not_permitted`. Proved in two halves:
+      `TestTheReasonARunEndedIsRecorded` writes it to the state file, and
+      `TestTheStoredReasonIsResent` sends it back verbatim.
+- [x] A Run whose command could not start still resends as `spawn_failed`.
+- [x] A Run the Agent gave up on at startup still resends as
+      `agent_restarted`, now stored by `reconcile()` rather than re-derived.
+- [x] A state file written before this change loads without error
+      (`TestRecentRunsWrittenBeforeTheReasonStillLoad`).
 
 ## Tests
 
