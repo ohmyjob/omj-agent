@@ -195,6 +195,7 @@ type harnessOptions struct {
 	realResender  bool
 	runAsAllowed  []string
 	stopBudget    time.Duration
+	discoverer    Collector
 	before        func(h *harness)
 }
 
@@ -267,6 +268,7 @@ func newHarness(t *testing.T, opts harnessOptions) *harness {
 		Buffer:     h.buffer,
 		Reporter:   h.reporter,
 		Resender:   resender,
+		Discoverer: opts.discoverer,
 		Logger:     slog.New(slog.NewTextHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 		Now:        func() time.Time { return now },
 		Backoff:    &client.Backoff{Rand: func() float64 { return 0.5 }},

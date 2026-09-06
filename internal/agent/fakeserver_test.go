@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -41,6 +42,8 @@ type fakeServer struct {
 	truncated     map[string]bool
 	holdFinish    chan struct{}
 	injected      map[string]any
+	discoveries   []protocol.DiscoveryRequest
+	discoveryWant bool
 }
 
 type failure struct {
@@ -88,6 +91,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 	mux.HandleFunc("POST /api/agent/v1/runs/{id}/output", f.output)
 	mux.HandleFunc("POST /api/agent/v1/runs/{id}/heartbeat", f.heartbeat)
 	mux.HandleFunc("POST /api/agent/v1/runs/{id}/finish", f.finish)
+	mux.HandleFunc("POST /api/agent/v1/discovery", f.discovery)
 
 	f.server = httptest.NewServer(mux)
 	t.Cleanup(f.server.Close)
@@ -330,7 +334,11 @@ func (f *fakeServer) work(w http.ResponseWriter, r *http.Request) {
 	injected := f.injected
 	f.mu.Unlock()
 
-	writeJSON(w, http.StatusOK, merge(protocol.WorkResponse{Runs: runs, CancelRunIDs: cancels, Config: config}, injected))
+	f.mu.Lock()
+	wantDiscovery := f.discoveryWant
+	f.mu.Unlock()
+
+	writeJSON(w, http.StatusOK, merge(protocol.WorkResponse{Runs: runs, CancelRunIDs: cancels, Config: config, DiscoveryRequested: wantDiscovery}, injected))
 }
 
 func merge(response protocol.WorkResponse, extra map[string]any) any {
@@ -458,4 +466,42 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 func writeError(w http.ResponseWriter, status int, body protocol.ErrorResponse) {
 	writeJSON(w, status, body)
+}
+
+// AskForDiscovery sets discovery_requested on every work response until the
+// Agent answers, which is what the real Server does: it clears the request
+// when the discovery arrives.
+func (f *fakeServer) AskForDiscovery() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.discoveryWant = true
+}
+
+func (f *fakeServer) Discoveries() []protocol.DiscoveryRequest {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.discoveries)
+}
+
+func (f *fakeServer) discovery(w http.ResponseWriter, r *http.Request) {
+	var request protocol.DiscoveryRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, protocol.ErrorResponse{Error: protocol.ErrValidationFailed, Message: err.Error()})
+
+		return
+	}
+
+	if !f.guard(w, r, "discovery") {
+		return
+	}
+
+	f.mu.Lock()
+	f.discoveries = append(f.discoveries, request)
+	f.discoveryWant = false
+	f.mu.Unlock()
+
+	writeJSON(w, http.StatusOK, protocol.DiscoveryResponse{Entries: len(request.Entries), ReportedAt: time.Now().UTC()})
 }

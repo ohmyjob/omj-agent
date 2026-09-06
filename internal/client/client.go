@@ -136,6 +136,16 @@ func (c *Client) Work(ctx context.Context, req protocol.WorkRequest) (protocol.W
 	return out, err
 }
 
+// Discovery is additive to protocol 1, so a Server built before it answers
+// 404 and IsNotFound is how the caller learns to stop asking.
+func (c *Client) Discovery(ctx context.Context, req protocol.DiscoveryRequest) (protocol.DiscoveryResponse, error) {
+	var out protocol.DiscoveryResponse
+
+	err := c.call(ctx, http.MethodPost, "/discovery", req, &out, c.timeout, true)
+
+	return out, err
+}
+
 func (c *Client) StartRun(ctx context.Context, runID string, req protocol.StartRequest) (protocol.StartResponse, error) {
 	var out protocol.StartResponse
 
